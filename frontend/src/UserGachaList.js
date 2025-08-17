@@ -6,6 +6,7 @@ import { Navigation, Pagination, A11y } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
+import UserGachaDetail from './UserGachaDetail';
 
 const mockGachas = [
 	{
@@ -44,7 +45,14 @@ const mockGachas = [
 
 export default function UserGachaList() {
 	const [search, setSearch] = React.useState('');
+	const [detailId, setDetailId] = React.useState(null);
 	const filtered = mockGachas.filter((g) => g.name.includes(search));
+
+	if (detailId) {
+		// 実際はIDでAPI取得するが、ここではモック
+		const gacha = mockGachas.find((g) => g.id === detailId);
+		return <UserGachaDetail gacha={gacha} onBack={() => setDetailId(null)} />;
+	}
 
 	return (
 		<Box sx={{ maxWidth: 900, mx: 'auto', my: 4, fontFamily: 'sans-serif' }}>
@@ -107,7 +115,7 @@ export default function UserGachaList() {
 									</Typography>
 								</CardContent>
 								<CardActions sx={{ mt: 'auto' }}>
-									<Button size="small" variant="outlined">
+									<Button size="small" variant="outlined" onClick={() => setDetailId(gacha.id)}>
 										詳細
 									</Button>
 									<Button size="small" variant="contained">
