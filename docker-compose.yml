@@ -7,10 +7,16 @@ services:
       - "8080:8080"
     depends_on:
       - db
+    volumes:
+      - ./web:/app
+      - /app/node_modules
   frontend:
     build: ./frontend
     ports:
       - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
   db:
     image: postgres:16
     environment:
