@@ -50,17 +50,29 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
     setLoginError('');
     
     try {
-      // TODO: API呼び出し実装
-      console.log('ログイン試行:', data);
-      
-      // 仮の認証処理（実際にはAPI呼び出し）
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await fetch('http://localhost:8080/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Cookieを含める
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'ログインに失敗しました');
+      }
+
+      console.log('ログイン成功:', result);
       
       if (onLogin) {
-        onLogin(data);
+        onLogin(result.user);
       }
     } catch (error) {
-      setLoginError('メールアドレスまたはパスワードが正しくありません');
+      console.error('ログインエラー:', error);
+      setLoginError(error.message || 'メールアドレスまたはパスワードが正しくありません');
     } finally {
       setIsLoading(false);
     }

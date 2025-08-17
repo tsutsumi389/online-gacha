@@ -1,12 +1,57 @@
-// シンプルなFastifyサーバー
+// メインサーバーファイル
 import Fastify from 'fastify';
+import database from './src/config/database.js';
+import { authenticate } from './src/middleware/auth.js';
+import authRoutes from './src/routes/auth.js';
+import gachaRoutes from './src/routes/gacha.js';
+import { errorHandler, setupGracefulShutdown } from './src/utils/helpers.js';
 
 const fastify = Fastify({ logger: true });
 
-fastify.get('/', async (request, reply) => {
-  return { hello: 'world' };
+// プラグインの登録
+await fastify.register(import('@fastify/jwt'), {
+  secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production'
 });
 
+await fastify.register(import('@fastify/cookie'), {
+  secret: process.env.COOKIE_SECRET || 'your-super-secret-cookie-key-change-this-in-production',
+  parseOptions: {}
+});
+
+await fastify.register(import('@fastify/cors'), {
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+});
+
+// データベース接続
+await database.connect();
+
+// 認証ミドルウェアをfastifyインスタンスに追加
+fastify.decorate('authenticate', authenticate(fastify));
+
+// ルートの登録
+fastify.get('/', async (request, reply) => {
+  return { 
+    hello: 'world', 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    version: '2.0.0'
+  };
+});
+
+// 認証関連のルート
+fastify.register(authRoutes, { prefix: '/api/auth' });
+
+// ガチャ関連のルート
+fastify.register(gachaRoutes, { prefix: '/api/gachas' });
+
+// エラーハンドラーの設定
+fastify.setErrorHandler(errorHandler(fastify));
+
+// Graceful shutdown の設定
+setupGracefulShutdown(fastify, database);
+
+// サーバー起動
 fastify.listen({ port: 8080, host: '0.0.0.0' }, (err, address) => {
   if (err) {
     fastify.log.error(err);
