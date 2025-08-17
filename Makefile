@@ -2,7 +2,7 @@
 
 # .envファイルなどでDATABASE_URLを定義しておくこと
 
-MIGRATE_CMD=docker compose exec web npm run migrate
+MIGRATE_CMD=docker compose exec web npm run migrate up
 SEED_CMD=docker compose exec web npm run seed
 DOCKER_UP_CMD=docker compose up -d
 DOCKER_EXEC_CMD=docker compose exec web sh
