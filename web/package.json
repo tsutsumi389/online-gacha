@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-  "migrate": "node-pg-migrate -d $DATABASE_URL -m ./migrations --create-schema --migrations-table migrations"
+  "migrate": "node-pg-migrate -d $DATABASE_URL -m ./migrations --create-schema --migrations-table migrations",
+  "seed": "node-pg-migrate seed -d $DATABASE_URL -m ./seeds"
   },
   "dependencies": {
     "fastify": "^4.27.2"
