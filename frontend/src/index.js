@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import AdminGachaList from './AdminGachaList';
+import MyGachaList from './MyGachaList';
 import UserGachaList from './UserGachaList';
 
 function App() {
@@ -9,12 +9,12 @@ function App() {
     <div>
       <nav style={{ margin: 16 }}>
         <button onClick={() => setPage('top')}>トップ</button>
-        <button onClick={() => setPage('user')}>ガチャ一覧</button>
-        <button onClick={() => setPage('admin')}>ガチャ管理</button>
+        <button onClick={() => setPage('gacha-list')}>ガチャ一覧</button>
+        <button onClick={() => setPage('my-gacha')}>マイガチャ</button>
       </nav>
       {page === 'top' && <h1>Online Gacha Frontend</h1>}
-      {page === 'user' && <UserGachaList />}
-      {page === 'admin' && <AdminGachaList />}
+      {page === 'gacha-list' && <UserGachaList />}
+      {page === 'my-gacha' && <MyGachaList />}
     </div>
   );
 }

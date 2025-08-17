@@ -7,7 +7,7 @@ const mockGachas = [
   { id: 2, name: 'サンプルガチャB', price: 500, created_at: '2025-08-10' },
 ];
 
-export default function AdminGachaList() {
+export default function MyGachaList() {
   const [showManage, setShowManage] = useState(false);
   const [selectedGacha, setSelectedGacha] = useState(null);
 
@@ -17,7 +17,7 @@ export default function AdminGachaList() {
 
   return (
     <div style={{ maxWidth: 800, margin: '2rem auto', fontFamily: 'sans-serif' }}>
-      <h2>ガチャ管理</h2>
+      <h2>マイガチャ管理</h2>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
           <input type="text" placeholder="ガチャ名で検索" style={{ padding: 4, marginRight: 8 }} />

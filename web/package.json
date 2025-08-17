@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "migrate": "node-pg-migrate -f database.json -m ./migrations --create-schema --migrations-table migrations",
-    "seed": "node-pg-migrate -f database.json seed -m ./seeds"
+    "seed": "node -e \"const fs = require('fs'); const { Client } = require('pg'); const config = JSON.parse(fs.readFileSync('database.json')); const client = new Client(config); const seedSQL = fs.readFileSync('seeds/002_unified_user_seed.sql', 'utf8'); client.connect().then(() => client.query(seedSQL)).then(() => { console.log('Seed data inserted successfully'); client.end(); }).catch(err => { console.error(err); client.end(); process.exit(1); });\""
   },
   "dependencies": {
     "fastify": "^4.27.2",
