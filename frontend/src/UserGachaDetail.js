@@ -1,8 +1,23 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Box, Typography, Button, Grid, Card, CardContent, CardMedia } from '@mui/material';
+import GachaPerformance from './GachaPerformance';
 
 export default function UserGachaDetail({ gacha, onBack }) {
+  const [showPerformance, setShowPerformance] = useState(false);
+  const [performanceType, setPerformanceType] = useState('normal');
+  const handleDraw = (type) => {
+    setPerformanceType(type);
+    setShowPerformance(true);
+  };
   if (!gacha) return null;
+  if (showPerformance) {
+    return (
+      <GachaPerformance
+        type={performanceType}
+        onBack={() => setShowPerformance(false)}
+      />
+    );
+  }
   return (
     <Box sx={{ maxWidth: 700, mx: 'auto', my: 4, fontFamily: 'sans-serif' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -36,8 +51,8 @@ export default function UserGachaDetail({ gacha, onBack }) {
         ))}
       </Grid>
       <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 4 }}>
-        <Button variant="contained" size="large">1回引く</Button>
-        <Button variant="contained" size="large">10連引く</Button>
+        <Button variant="contained" size="large" onClick={() => handleDraw('normal')}>1回引く</Button>
+        <Button variant="contained" size="large" onClick={() => handleDraw('normal')}>10連引く</Button>
       </Box>
     </Box>
   );
