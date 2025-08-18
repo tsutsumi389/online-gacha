@@ -8,9 +8,20 @@ export const loginSchema = Joi.object({
 });
 
 export const registerSchema = Joi.object({
-  username: Joi.string().min(3).max(50).required(),
-  email: Joi.string().email().required(),
-  password: Joi.string().min(6).required(),
+  name: Joi.string().min(2).max(64).required().messages({
+    'string.min': 'ユーザー名は2文字以上で入力してください',
+    'string.max': 'ユーザー名は64文字以下で入力してください',
+    'any.required': 'ユーザー名は必須です'
+  }),
+  email: Joi.string().email().required().messages({
+    'string.email': '正しいメールアドレスを入力してください',
+    'any.required': 'メールアドレスは必須です'
+  }),
+  password: Joi.string().min(8).pattern(/^(?=.*[a-zA-Z])(?=.*[0-9])/).required().messages({
+    'string.min': 'パスワードは8文字以上で入力してください',
+    'string.pattern.base': 'パスワードは英数字を含む必要があります',
+    'any.required': 'パスワードは必須です'
+  }),
   role: Joi.string().valid('user', 'admin').default('user')
 });
 
