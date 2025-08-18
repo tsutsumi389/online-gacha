@@ -11,14 +11,14 @@ export default async function authRoutes(fastify, options) {
       if (error) {
         return reply.code(400).send({ 
           error: 'Validation failed', 
-          details: error.details[0].message 
+          message: error.details[0].message 
         });
       }
 
-      const { username, email, password, role } = value;
+      const { name, email, password, role = 'user' } = value;
 
       // ユーザーの作成
-      const newUser = await User.create({ username, email, password, role });
+      const newUser = await User.create({ name, email, password, role });
 
       // JWTトークンの生成
       const token = fastify.jwt.sign({ 
@@ -37,20 +37,34 @@ export default async function authRoutes(fastify, options) {
 
       return reply.code(201).send({
         message: 'User registered successfully',
-        user: newUser.toJSON()
+        user: {
+          id: newUser.id,
+          name: newUser.name,
+          email: newUser.email,
+          role: newUser.role
+        }
       });
 
     } catch (error) {
       fastify.log.error(error);
       
       if (error.message === 'Email already exists') {
-        return reply.code(409).send({ error: 'Email already exists' });
+        return reply.code(409).send({ 
+          error: 'EMAIL_ALREADY_EXISTS',
+          message: 'このメールアドレスは既に登録されています' 
+        });
       }
-      if (error.message === 'Username already exists') {
-        return reply.code(409).send({ error: 'Username already exists' });
+      if (error.message === 'Name already exists') {
+        return reply.code(409).send({ 
+          error: 'NAME_ALREADY_EXISTS',
+          message: 'このユーザー名は既に使用されています' 
+        });
       }
       
-      return reply.code(500).send({ error: 'Internal server error' });
+      return reply.code(500).send({ 
+        error: 'INTERNAL_SERVER_ERROR',
+        message: '登録中にエラーが発生しました。もう一度お試しください' 
+      });
     }
   });
 

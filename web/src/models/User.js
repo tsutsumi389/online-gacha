@@ -5,7 +5,7 @@ import database from '../config/database.js';
 class User {
   constructor(data) {
     this.id = data.id;
-    this.username = data.username || data.name;
+    this.name = data.name || data.username;
     this.email = data.email;
     this.role = data.role;
     this.createdAt = data.created_at;
@@ -15,7 +15,7 @@ class User {
   // ユーザーをIDで取得
   static async findById(userId) {
     const result = await database.query(
-      'SELECT id, name as username, email, role, created_at, updated_at FROM users WHERE id = $1',
+      'SELECT id, name, email, role, created_at, updated_at FROM users WHERE id = $1',
       [userId]
     );
     return result.rows[0] ? new User(result.rows[0]) : null;
@@ -24,23 +24,23 @@ class User {
   // ユーザーをメールアドレスで取得
   static async findByEmail(email) {
     const result = await database.query(
-      'SELECT id, name as username, email, password_hash, role, created_at, updated_at FROM users WHERE email = $1',
+      'SELECT id, name, email, password_hash, role, created_at, updated_at FROM users WHERE email = $1',
       [email]
     );
     return result.rows[0] || null;
   }
 
-  // ユーザーをユーザー名で取得
-  static async findByUsername(username) {
+  // ユーザーを名前で取得
+  static async findByName(name) {
     const result = await database.query(
-      'SELECT id, name as username, email, role, created_at, updated_at FROM users WHERE name = $1',
-      [username]
+      'SELECT id, name, email, role, created_at, updated_at FROM users WHERE name = $1',
+      [name]
     );
     return result.rows[0] ? new User(result.rows[0]) : null;
   }
 
   // 新しいユーザーを作成
-  static async create({ username, email, password, role = 'user' }) {
+  static async create({ name, email, password, role = 'user' }) {
     // メールアドレスの重複チェック
     const existingEmail = await this.findByEmail(email);
     if (existingEmail) {
@@ -48,9 +48,9 @@ class User {
     }
 
     // ユーザー名の重複チェック
-    const existingUsername = await this.findByUsername(username);
-    if (existingUsername) {
-      throw new Error('Username already exists');
+    const existingName = await this.findByName(name);
+    if (existingName) {
+      throw new Error('Name already exists');
     }
 
     // パスワードのハッシュ化
@@ -59,8 +59,8 @@ class User {
 
     // ユーザーの作成
     const result = await database.query(
-      'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id, name as username, email, role, created_at',
-      [username, email, hashedPassword, role]
+      'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role, created_at',
+      [name, email, hashedPassword, role]
     );
 
     return new User(result.rows[0]);
@@ -108,7 +108,7 @@ class User {
   toJSON() {
     return {
       id: this.id,
-      username: this.username,
+      name: this.name,
       email: this.email,
       role: this.role,
       createdAt: this.createdAt,
