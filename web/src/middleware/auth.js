@@ -11,20 +11,13 @@ export const authenticate = (fastify) => {
         return reply.code(401).send({ error: 'No token provided' });
       }
 
-      // トークンの検証
+      // トークンの検証（roleフィールドなし）
       const decoded = fastify.jwt.verify(token);
       request.user = decoded;
     } catch (err) {
       reply.code(401).send({ error: 'Unauthorized' });
     }
   };
-};
-
-// 管理者権限チェックミドルウェア
-export const requireAdmin = async (request, reply) => {
-  if (request.user.role !== 'admin') {
-    return reply.code(403).send({ error: 'Admin access required' });
-  }
 };
 
 // レート制限ミドルウェア（今後の実装用）

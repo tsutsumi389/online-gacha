@@ -4,6 +4,7 @@ import database from './src/config/database.js';
 import { authenticate } from './src/middleware/auth.js';
 import authRoutes from './src/routes/auth.js';
 import gachaRoutes from './src/routes/gacha.js';
+import userGachaRoutes from './src/routes/admin.js';
 import { errorHandler, setupGracefulShutdown } from './src/utils/helpers.js';
 
 const fastify = Fastify({ logger: true });
@@ -44,6 +45,9 @@ fastify.register(authRoutes, { prefix: '/api/auth' });
 
 // ガチャ関連のルート
 fastify.register(gachaRoutes, { prefix: '/api/gachas' });
+
+// ユーザーガチャ管理のルート
+fastify.register(userGachaRoutes, { prefix: '/api/my' });
 
 // エラーハンドラーの設定
 fastify.setErrorHandler(errorHandler(fastify));
