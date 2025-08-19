@@ -80,6 +80,10 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }) {
       console.error('登録エラー:', error);
       if (error.message.includes('already exists') || error.message.includes('duplicate')) {
         setRegisterError('このメールアドレスは既に登録されています');
+      } else if (error.message.includes('NAME_ALREADY_EXISTS')) {
+        setRegisterError('このユーザー名は既に使用されています');
+      } else if (error.message.includes('Validation failed')) {
+        setRegisterError('入力内容に不備があります。もう一度確認してください');
       } else {
         setRegisterError('登録中にエラーが発生しました。もう一度お試しください');
       }

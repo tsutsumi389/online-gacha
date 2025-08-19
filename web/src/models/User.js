@@ -5,7 +5,7 @@ import database from '../config/database.js';
 class User {
   constructor(data) {
     this.id = data.id;
-    this.username = data.username || data.name;
+    this.name = data.name || data.username;
     this.email = data.email;
     this.createdAt = data.created_at;
     this.updatedAt = data.updated_at;
@@ -29,11 +29,11 @@ class User {
     return result.rows[0] || null;
   }
 
-  // ユーザーをユーザー名で取得
-  static async findByUsername(username) {
+  // ユーザーを名前で取得
+  static async findByName(name) {
     const result = await database.query(
       'SELECT id, name as username, email, created_at, updated_at FROM users WHERE name = $1',
-      [username]
+      [name]
     );
     return result.rows[0] ? new User(result.rows[0]) : null;
   }
@@ -47,8 +47,8 @@ class User {
     }
 
     // ユーザー名の重複チェック
-    const existingUsername = await this.findByUsername(name);
-    if (existingUsername) {
+    const existingName = await this.findByName(name);
+    if (existingName) {
       throw new Error('NAME_ALREADY_EXISTS');
     }
 
@@ -103,11 +103,11 @@ class User {
     return true;
   }
 
-  // JSON出力用
+  // JSON形式での出力（password_hashを除外）
   toJSON() {
     return {
       id: this.id,
-      name: this.username,
+      name: this.name,
       email: this.email,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt

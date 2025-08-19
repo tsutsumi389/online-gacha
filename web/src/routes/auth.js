@@ -11,7 +11,7 @@ export default async function authRoutes(fastify, options) {
       if (error) {
         return reply.code(400).send({ 
           error: 'Validation failed', 
-          details: error.details[0].message 
+          message: error.details[0].message 
         });
       }
 
@@ -36,7 +36,12 @@ export default async function authRoutes(fastify, options) {
 
       return reply.code(201).send({
         message: 'User registered successfully',
-        user: newUser.toJSON()
+        user: {
+          id: newUser.id,
+          name: newUser.name,
+          email: newUser.email,
+          role: newUser.role
+        }
       });
 
     } catch (error) {
@@ -55,7 +60,10 @@ export default async function authRoutes(fastify, options) {
         });
       }
       
-      return reply.code(500).send({ error: 'Internal server error' });
+      return reply.code(500).send({ 
+        error: 'INTERNAL_SERVER_ERROR',
+        message: '登録中にエラーが発生しました。もう一度お試しください' 
+      });
     }
   });
 
