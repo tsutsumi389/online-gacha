@@ -17,6 +17,7 @@ import { Visibility, VisibilityOff, Email, Lock, Person } from '@mui/icons-mater
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import { authAPI } from './utils/api';
 
 // バリデーションスキーマ
 const registerSchema = yup.object({
@@ -69,21 +70,15 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }) {
     setRegisterError('');
     
     try {
-      // TODO: API呼び出し実装
-      console.log('新規登録試行:', data);
-      
-      // 仮の登録処理（実際にはAPI呼び出し）
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // 実際のAPI呼び出し
+      const userData = await authAPI.register(data.name, data.email, data.password);
       
       if (onRegister) {
-        onRegister({
-          name: data.name,
-          email: data.email,
-          password: data.password
-        });
+        onRegister(userData);
       }
     } catch (error) {
-      if (error.code === 'EMAIL_ALREADY_EXISTS') {
+      console.error('登録エラー:', error);
+      if (error.message.includes('already exists') || error.message.includes('duplicate')) {
         setRegisterError('このメールアドレスは既に登録されています');
       } else {
         setRegisterError('登録中にエラーが発生しました。もう一度お試しください');

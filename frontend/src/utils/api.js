@@ -48,10 +48,10 @@ export const authAPI = {
   },
 
   // 新規登録
-  register: async (name, email, password, role = 'user') => {
+  register: async (name, email, password) => {
     return apiRequest('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ name, email, password, role }),
+      body: JSON.stringify({ name, email, password }),
     });
   },
 

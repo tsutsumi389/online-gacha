@@ -40,9 +40,9 @@ doc/              - ドキュメント
 - name (VARCHAR(64)) - ユーザー名
 - email (VARCHAR(255), UNIQUE) - メールアドレス
 - password_hash (VARCHAR(255)) - ハッシュ化パスワード
-- role (VARCHAR(20)) - 'user' または 'admin'
 - created_at, updated_at
 ```
+**※ 注意**: `role`カラムは削除されました。全ユーザーが平等にガチャ作成・管理が可能です。
 
 #### gachas テーブル
 ```sql
@@ -50,7 +50,7 @@ doc/              - ドキュメント
 - name (VARCHAR(128)) - ガチャ名
 - description (TEXT) - 説明
 - price (INTEGER) - 価格
-- user_id (Foreign Key to users) - 作成者
+- created_by (Foreign Key to users) - 作成者
 - is_public (BOOLEAN) - 公開状態
 - display_from (TIMESTAMP) - 表示開始日時
 - display_to (TIMESTAMP) - 表示終了日時
@@ -86,7 +86,8 @@ doc/              - ドキュメント
 2. **ログイン**: `POST /api/auth/login`
 3. **JWT トークン発行**: レスポンスでトークン返却、HTTPOnly Cookieで保存
 4. **認証が必要なエンドポイント**: Cookie または `Authorization: Bearer <token>` ヘッダー
-5. **ロールベースアクセス制御**: user/admin ロール
+5. **ページリロード時の認証復元**: ローカルストレージとサーバー検証による自動ログイン復元
+6. **平等アクセス制御**: 全ユーザーがガチャ作成・管理可能（ロールベース制御は撤廃）
 
 ### 新規登録機能の実装詳細
 
@@ -123,8 +124,7 @@ doc/              - ドキュメント
   "user": {
     "id": 1,
     "name": "ユーザー名",
-    "email": "user@example.com",
-    "role": "user"
+    "email": "user@example.com"
   }
 }
 
@@ -152,12 +152,12 @@ doc/              - ドキュメント
 ### デフォルトユーザー
 ```sql
 -- パスワードは全て "password123"
-- tanaka@example.com (user)
-- sato@example.com (user)
-- admin@example.com (admin)
-- suzuki@example.com (user)
-- test@example.com (user) - API テスト用
+- tanaka@example.com
+- sato@example.com
+- suzuki@example.com
+- test@example.com - API テスト用
 ```
+**※ 注意**: 管理者ロールは廃止されました。全ユーザーが平等に機能を利用できます。
 
 ## API エンドポイント
 
@@ -175,7 +175,7 @@ GET /             - 公開ガチャ一覧
 GET /:id          - ガチャ詳細
 POST /:id/draw    - ガチャ実行
 
-# ユーザー専用 (要認証)
+# マイガチャ管理 (要認証)
 GET /my           - 自分のガチャ一覧
 POST /my          - ガチャ作成
 GET /my/:id       - 自分のガチャ詳細
@@ -184,50 +184,39 @@ DELETE /my/:id    - ガチャ削除
 PUT /my/:id/toggle-public - 公開状態切り替え
 ```
 
-### 管理者 API (/api/admin)
-```
-GET /gachas       - 全ガチャ一覧 (管理者のみ)
-POST /gachas      - ガチャ作成 (管理者のみ)
-PUT /gachas/:id   - ガチャ更新 (管理者のみ)
-DELETE /gachas/:id - ガチャ削除 (管理者のみ)
-PUT /gachas/:id/toggle-public - 公開状態切り替え (管理者のみ)
-```
-
 ## フロントエンドコンポーネント
 
 ### 主要コンポーネント
 ```
-App.js                - メインアプリケーション、ルーティング
-LoginForm.js          - ログインフォーム
-RegisterForm.js       - 新規登録フォーム
+App.js                - メインアプリケーション、ルーティング、認証状態管理
+LoginForm.js          - ログインフォーム（API統合済み）
+RegisterForm.js       - 新規登録フォーム（API統合済み）
 UserGachaList.js      - 公開ガチャ一覧
 UserGachaDetail.js    - ガチャ詳細・実行画面
-MyGachaList.js        - マイガチャ一覧 (UserGachaManageを使用)
-AdminGachaManage.js   - 管理者ガチャ管理
-AdminGachaEdit.js     - 管理者ガチャ編集
-UserGachaManage.js    - ユーザーガチャ管理
-UserGachaEdit.js      - ユーザーガチャ編集
+MyGachaList.js        - マイガチャ一覧（完全実装済み）
 GachaPerformance.js   - ガチャ実行演出
 ```
 
-### 状態管理
-- React Context API を使用
-- 認証状態、ユーザー情報をグローバル管理
-- ローカルストレージでトークン永続化
+### 認証状態管理
+- **永続化**: ローカルストレージによる認証状態保存
+- **復元機能**: ページリロード時の自動ログイン復元
+- **サーバー検証**: トークン有効性の定期確認
+- **エラーハンドリング**: 無効トークンの自動クリア
 
-## 権限システム
+## 権限システム（廃止済み）
 
-### ロール定義
-- **user**: 一般ユーザー
+### 平等アクセス設計
+- **全ユーザー共通権限**: 
   - 自分のガチャの作成・編集・削除
   - 公開ガチャの閲覧・実行
-- **admin**: 管理者
-  - 全ユーザーのガチャ管理
-  - システム全体の管理機能
+  - システム機能への平等アクセス
+- **所有者ベース制御**: ガチャは作成者のみが編集・削除可能
+- **公開設定**: 各ユーザーが自分のガチャの公開範囲を制御
 
-### 権限チェック
+### 認証チェック
 - バックエンド: JWT トークンからユーザー情報抽出
-- フロントエンド: ユーザー情報に基づくUI制御
+- フロントエンド: 認証状態に基づくUI制御
+- **ロールチェック**: 完全に撤廃されました
 
 ## バリデーション
 
@@ -238,7 +227,6 @@ registerSchema = {
   name: string (2-64文字, 必須) - ユーザー名
   email: string (email形式, 必須) - メールアドレス
   password: string (8文字以上, 英数字必須, 必須) - パスワード
-  role: string ('user' または 'admin', デフォルト: 'user') - ロール
 }
 
 // ログイン
@@ -247,6 +235,7 @@ loginSchema = {
   password: string (6文字以上, 必須)
 }
 ```
+**※ 注意**: `role`フィールドは削除されました。
 
 ### ガチャ関連バリデーション (Joi スキーマ)
 ```javascript
@@ -314,13 +303,13 @@ docker-compose exec web npm run seed
   1. 8文字以上の英数字を含むパスワードを使用
   2. フロントエンドでリアルタイムバリデーション確認
 
-#### 3. ガチャ作成エラー
-- **症状**: "Not Found" エラー
-- **原因**: 認証トークンの問題、APIエンドポイントの不一致
+#### 3. 認証状態が維持されない
+- **症状**: ページリロード後にログアウト状態になる
+- **原因**: ローカルストレージまたはトークン有効性の問題
 - **解決**: 
-  1. ログイン状態確認
-  2. APIエンドポイントのパス確認
-  3. CORS設定確認
+  1. ブラウザのローカルストレージを確認
+  2. 再ログインしてトークンを更新
+  3. Cookie設定の確認
 
 #### 4. 認証エラー
 - **症状**: "Invalid email or password"
@@ -371,7 +360,7 @@ curl http://localhost:8080/api/gachas
 
 # 認証付きリクエスト（Cookie使用）
 curl -b cookies.txt -c cookies.txt \
-     http://localhost:8080/api/gachas/my
+     http://localhost:8080/api/my/gachas
 ```
 
 ## 技術仕様
@@ -414,10 +403,11 @@ curl -b cookies.txt -c cookies.txt \
 
 ### コード修正時
 1. **認証確認**: エンドポイント変更時は認証ミドルウェアの適用確認
-2. **権限チェック**: ユーザー権限とデータアクセス範囲の整合性確認
+2. **所有者チェック**: ユーザーが自分のデータのみにアクセスできることを確認
 3. **バリデーション**: 入力データの検証スキーマ更新（フロントエンド・バックエンド両方）
 4. **エラーハンドリング**: 適切なHTTPステータスコードとエラーメッセージ
 5. **フィールド名統一**: フロントエンドとバックエンドでフィールド名を統一（例: `name`）
+6. **認証状態管理**: ページリロード時の認証復元機能の確認
 
 ### データベース変更時
 1. **マイグレーション**: スキーマ変更はマイグレーションファイルで管理
@@ -430,6 +420,43 @@ curl -b cookies.txt -c cookies.txt \
 3. **HTTPS**: 本番環境では HTTPS 必須
 
 ## 変更履歴
+
+### 2025年8月19日 - ロールベースアクセス制御の完全撤廃と認証永続化
+- **アーキテクチャ変更**:
+  - 管理者・ユーザーの区別を完全撤廃
+  - 全ユーザーがガチャ作成・管理機能に平等アクセス
+  - 所有者ベースアクセス制御への移行
+
+- **データベース変更**:
+  - マイグレーション実行: `005_remove_user_roles.sql`
+  - `users.role`カラムの削除
+  - `gachas.user_id` → `gachas.created_by`へのリネーム
+  - シードデータ更新: `003_no_role_user_seed.sql`
+
+- **バックエンド修正**:
+  - `User.js`: roleフィールド完全削除、toJSON()更新
+  - `auth.js`: 登録・ログイン処理からrole除去
+  - `validation.js`: registerSchemaからrole削除
+  - `middleware/auth.js`: requireAdmin削除
+  - `Gacha.js`: 所有者ベースアクセス制御実装
+
+- **フロントエンド修正**:
+  - `App.js`: 認証状態永続化実装（useEffect + localStorage）
+  - `LoginForm.js`: authAPI統合、実際のAPI呼び出し
+  - `RegisterForm.js`: authAPI統合、実際のAPI呼び出し
+  - `MyGachaList.js`: 完全実装（モックから実API移行）
+  - `utils/api.js`: roleパラメータ削除、myGachaAPI実装
+
+- **認証機能強化**:
+  - ページリロード時の認証状態復元
+  - ローカルストレージによる認証情報永続化
+  - サーバートークン検証による認証確認
+  - 無効トークンの自動クリア機能
+
+- **API仕様変更**:
+  - `/api/admin/*` → `/api/my/*`へのエンドポイント変更
+  - 所有者チェック機能の強化
+  - 全APIからrole要件削除
 
 ### 2025年8月18日 - 新規ユーザー登録機能実装
 - **フロントエンド**:
