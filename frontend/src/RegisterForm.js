@@ -70,21 +70,15 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }) {
     setRegisterError('');
     
     try {
-      // API呼び出しで新規登録
-      const response = await authAPI.register(data.name, data.email, data.password);
+      // 実際のAPI呼び出し
+      const userData = await authAPI.register(data.name, data.email, data.password);
       
       if (onRegister) {
-        onRegister({
-          id: response.user.id,
-          name: response.user.name,
-          email: response.user.email,
-          role: response.user.role
-        });
+        onRegister(userData);
       }
     } catch (error) {
-      console.error('Registration error:', error);
-      
-      if (error.message.includes('EMAIL_ALREADY_EXISTS')) {
+      console.error('登録エラー:', error);
+      if (error.message.includes('already exists') || error.message.includes('duplicate')) {
         setRegisterError('このメールアドレスは既に登録されています');
       } else if (error.message.includes('NAME_ALREADY_EXISTS')) {
         setRegisterError('このユーザー名は既に使用されています');

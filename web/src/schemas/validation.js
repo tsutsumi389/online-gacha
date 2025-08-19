@@ -21,8 +21,7 @@ export const registerSchema = Joi.object({
     'string.min': 'パスワードは8文字以上で入力してください',
     'string.pattern.base': 'パスワードは英数字を含む必要があります',
     'any.required': 'パスワードは必須です'
-  }),
-  role: Joi.string().valid('user', 'admin').default('user')
+  })
 });
 
 export const changePasswordSchema = Joi.object({
@@ -37,12 +36,20 @@ export const gachaDrawSchema = Joi.object({
 
 // ガチャ作成スキーマ（管理者用）
 export const createGachaSchema = Joi.object({
-  name: Joi.string().min(1).max(100).required(),
-  description: Joi.string().max(500).optional(),
+  name: Joi.string().min(1).max(128).required(),
+  description: Joi.string().max(1000).optional(),
   price: Joi.number().integer().min(1).required(),
-  rates: Joi.string().required(),
-  image_url: Joi.string().uri().optional(),
-  is_active: Joi.boolean().default(true),
-  start_date: Joi.date().optional(),
-  end_date: Joi.date().optional()
+  isPublic: Joi.boolean().default(true),
+  displayFrom: Joi.date().optional(),
+  displayTo: Joi.date().optional()
+});
+
+// ガチャ更新スキーマ（管理者用）
+export const updateGachaSchema = Joi.object({
+  name: Joi.string().min(1).max(128).optional(),
+  description: Joi.string().max(1000).optional(),
+  price: Joi.number().integer().min(1).optional(),
+  isPublic: Joi.boolean().optional(),
+  displayFrom: Joi.date().optional(),
+  displayTo: Joi.date().optional()
 });

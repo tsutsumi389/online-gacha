@@ -15,16 +15,15 @@ export default async function authRoutes(fastify, options) {
         });
       }
 
-      const { name, email, password, role = 'user' } = value;
+      const { name, email, password } = value;
 
-      // ユーザーの作成
-      const newUser = await User.create({ name, email, password, role });
+      // ユーザーの作成（roleパラメータを削除）
+      const newUser = await User.create({ name, email, password });
 
-      // JWTトークンの生成
+      // JWTトークンの生成（roleを除去）
       const token = fastify.jwt.sign({ 
         userId: newUser.id, 
-        email: newUser.email, 
-        role: newUser.role 
+        email: newUser.email 
       });
 
       // HTTPOnly Cookieでトークンを設定
@@ -48,16 +47,16 @@ export default async function authRoutes(fastify, options) {
     } catch (error) {
       fastify.log.error(error);
       
-      if (error.message === 'Email already exists') {
+      if (error.message === 'EMAIL_ALREADY_EXISTS') {
         return reply.code(409).send({ 
           error: 'EMAIL_ALREADY_EXISTS',
-          message: 'このメールアドレスは既に登録されています' 
+          message: 'このメールアドレスは既に使用されています'
         });
       }
-      if (error.message === 'Name already exists') {
+      if (error.message === 'NAME_ALREADY_EXISTS') {
         return reply.code(409).send({ 
           error: 'NAME_ALREADY_EXISTS',
-          message: 'このユーザー名は既に使用されています' 
+          message: 'このユーザー名は既に使用されています'
         });
       }
       
@@ -88,11 +87,10 @@ export default async function authRoutes(fastify, options) {
         return reply.code(401).send({ error: 'Invalid email or password' });
       }
 
-      // JWTトークンの生成
+      // JWTトークンの生成（roleを除去）
       const token = fastify.jwt.sign({ 
         userId: user.id, 
-        email: user.email, 
-        role: user.role 
+        email: user.email 
       });
 
       // HTTPOnly Cookieでトークンを設定

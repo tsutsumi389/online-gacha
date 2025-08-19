@@ -15,6 +15,7 @@ import { Visibility, VisibilityOff, Email, Lock } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import { authAPI } from './utils/api';
 
 // バリデーションスキーマ
 const loginSchema = yup.object({
@@ -50,21 +51,8 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
     setLoginError('');
     
     try {
-      const response = await fetch('http://localhost:8080/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Cookieを含める
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'ログインに失敗しました');
-      }
-
+      const result = await authAPI.login(data.email, data.password);
+      
       console.log('ログイン成功:', result);
       
       if (onLogin) {

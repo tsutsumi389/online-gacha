@@ -48,10 +48,10 @@ export const authAPI = {
   },
 
   // 新規登録
-  register: async (name, email, password, role = 'user') => {
+  register: async (name, email, password) => {
     return apiRequest('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ name, email, password, role }),
+      body: JSON.stringify({ name, email, password }),
     });
   },
 
@@ -98,6 +98,54 @@ export const gachaAPI = {
     return apiRequest(`/api/gachas/${id}/draw`, {
       method: 'POST',
       body: JSON.stringify({ count }),
+    });
+  },
+};
+
+// ユーザーガチャ管理用API
+export const myGachaAPI = {
+  // 自分のガチャ一覧取得
+  getGachas: async (params = {}) => {
+    const queryParams = new URLSearchParams();
+    if (params.search) queryParams.append('search', params.search);
+    if (params.page) queryParams.append('page', params.page);
+    if (params.limit) queryParams.append('limit', params.limit);
+    if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/api/my/gachas${queryString ? `?${queryString}` : ''}`;
+    
+    return apiRequest(endpoint);
+  },
+
+  // 自分のガチャ作成
+  createGacha: async (gachaData) => {
+    return apiRequest('/api/my/gachas', {
+      method: 'POST',
+      body: JSON.stringify(gachaData),
+    });
+  },
+
+  // 自分のガチャ更新
+  updateGacha: async (id, gachaData) => {
+    return apiRequest(`/api/my/gachas/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(gachaData),
+    });
+  },
+
+  // 自分のガチャ削除
+  deleteGacha: async (id) => {
+    return apiRequest(`/api/my/gachas/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // 自分のガチャ公開状態切り替え
+  toggleGachaPublic: async (id) => {
+    return apiRequest(`/api/my/gachas/${id}/toggle-public`, {
+      method: 'PUT',
     });
   },
 };

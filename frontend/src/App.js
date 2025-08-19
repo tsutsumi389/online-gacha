@@ -1,30 +1,69 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { AppBar, Toolbar, Typography, Button, Box } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button, Box, CircularProgress } from '@mui/material';
 import LoginForm from './LoginForm';
 import RegisterForm from './RegisterForm';
 import MyGachaList from './MyGachaList';
 import UserGachaList from './UserGachaList';
+import { authAPI } from './utils/api';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // ページロード時に認証状態を復元
+  useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        // ローカルストレージから認証情報を確認
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          // サーバーでトークンの有効性を確認
+          const currentUser = await authAPI.getCurrentUser();
+          setIsAuthenticated(true);
+          setUser(currentUser);
+        }
+      } catch (error) {
+        console.error('認証状態の復元に失敗:', error);
+        // 無効なトークンの場合はローカルストレージをクリア
+        localStorage.removeItem('user');
+        setIsAuthenticated(false);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeAuth();
+  }, []);
 
   const handleLogin = (userData) => {
     setIsAuthenticated(true);
     setUser(userData);
+    // ローカルストレージに保存
+    localStorage.setItem('user', JSON.stringify(userData));
     navigate('/'); // ログイン後はホームページにリダイレクト
   };
 
   const handleRegister = (userData) => {
     setIsAuthenticated(true);
     setUser(userData);
+    // ローカルストレージに保存
+    localStorage.setItem('user', JSON.stringify(userData));
     navigate('/'); // 登録後はホームページにリダイレクト
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await authAPI.logout();
+    } catch (error) {
+      console.error('ログアウト処理でエラー:', error);
+    }
+    // ローカルストレージをクリア
+    localStorage.removeItem('user');
     setIsAuthenticated(false);
     setUser(null);
     navigate('/login');
@@ -39,6 +78,20 @@ function App() {
   const PublicRoute = ({ children }) => {
     return !isAuthenticated ? children : <Navigate to="/" />;
   };
+
+  // 認証状態の復元中はローディング表示
+  if (isLoading) {
+    return (
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh' 
+      }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <div>
