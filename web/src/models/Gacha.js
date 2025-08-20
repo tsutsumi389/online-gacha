@@ -275,10 +275,10 @@ class Gacha {
     }
 
     const result = await database.query(`
-      SELECT id, name, description, rarity, stock, image_url, is_public, created_at, updated_at
+      SELECT id, name, description, stock, image_url, is_public, created_at, updated_at
       FROM gacha_items
       WHERE gacha_id = $1
-      ORDER BY rarity DESC, name
+      ORDER BY created_at DESC, name
     `, [gachaId]);
 
     return result.rows;
@@ -295,13 +295,13 @@ class Gacha {
       throw new Error('Gacha not found or access denied');
     }
 
-    const { name, description, rarity = 'common', stock = 0, imageUrl = '', isPublic = true } = itemData;
+    const { name, description, stock = 0, imageUrl = '', isPublic = true } = itemData;
 
     const result = await database.query(`
-      INSERT INTO gacha_items (gacha_id, name, description, rarity, stock, image_url, is_public)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING id, name, description, rarity, stock, image_url, is_public, created_at, updated_at
-    `, [gachaId, name, description, rarity, stock, imageUrl, isPublic]);
+      INSERT INTO gacha_items (gacha_id, name, description, stock, image_url, is_public)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id, name, description, stock, image_url, is_public, created_at, updated_at
+    `, [gachaId, name, description, stock, imageUrl, isPublic]);
 
     return result.rows[0];
   }
@@ -317,15 +317,15 @@ class Gacha {
       throw new Error('Gacha not found or access denied');
     }
 
-    const { name, description, rarity, stock, imageUrl, isPublic } = itemData;
+    const { name, description, stock, imageUrl, isPublic } = itemData;
 
     const result = await database.query(`
       UPDATE gacha_items 
-      SET name = $1, description = $2, rarity = $3, stock = $4, 
-          image_url = $5, is_public = $6, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $7 AND gacha_id = $8
-      RETURNING id, name, description, rarity, stock, image_url, is_public, created_at, updated_at
-    `, [name, description, rarity, stock, imageUrl, isPublic, itemId, gachaId]);
+      SET name = $1, description = $2, stock = $3, 
+          image_url = $4, is_public = $5, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $6 AND gacha_id = $7
+      RETURNING id, name, description, stock, image_url, is_public, created_at, updated_at
+    `, [name, description, stock, imageUrl, isPublic, itemId, gachaId]);
 
     if (result.rows.length === 0) {
       throw new Error('Item not found');

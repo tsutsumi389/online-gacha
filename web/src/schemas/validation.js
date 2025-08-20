@@ -98,9 +98,6 @@ export const createGachaItemSchema = Joi.object({
   description: Joi.string().max(1000).optional().allow('').messages({
     'string.max': '説明は1000文字以下で入力してください'
   }),
-  rarity: Joi.string().valid('common', 'rare', 'srare', 'ssr').default('common').messages({
-    'any.only': 'レアリティは common, rare, srare, ssr のいずれかを選択してください'
-  }),
   stock: Joi.number().integer().min(0).default(0).messages({
     'number.min': '在庫数は0以上で入力してください',
     'number.integer': '在庫数は整数で入力してください'
@@ -119,9 +116,6 @@ export const updateGachaItemSchema = Joi.object({
   }),
   description: Joi.string().max(1000).optional().allow('').messages({
     'string.max': '説明は1000文字以下で入力してください'
-  }),
-  rarity: Joi.string().valid('common', 'rare', 'srare', 'ssr').optional().messages({
-    'any.only': 'レアリティは common, rare, srare, ssr のいずれかを選択してください'
   }),
   stock: Joi.number().integer().min(0).optional().messages({
     'number.min': '在庫数は0以上で入力してください',

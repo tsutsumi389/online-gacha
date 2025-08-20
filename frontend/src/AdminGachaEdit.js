@@ -26,16 +26,19 @@ export default function AdminGachaEdit({ gacha, onBack }) {
   const [isNewItem, setIsNewItem] = useState(false);
   const [openDeleteItem, setOpenDeleteItem] = useState(false);
   const [deleteItemId, setDeleteItemId] = useState(null);
+  const [createdGachaId, setCreatedGachaId] = useState(null); // 新規作成されたガチャのID
+  const [successMessage, setSuccessMessage] = useState(''); // 成功メッセージ
 
   const isNewGacha = !gacha || !gacha.id;
+  const currentGachaId = createdGachaId || (gacha && gacha.id); // 作成後のIDまたは既存のID
 
   // ガチャアイテム一覧を取得
   const fetchItems = async () => {
-    if (isNewGacha) return;
+    if (!currentGachaId) return;
     
     try {
       setItemsLoading(true);
-      const response = await myGachaAPI.getGachaItems(gacha.id);
+      const response = await myGachaAPI.getGachaItems(currentGachaId);
       setItems(response.items || []);
     } catch (err) {
       setError('アイテム一覧の取得に失敗しました: ' + err.message);
@@ -45,10 +48,10 @@ export default function AdminGachaEdit({ gacha, onBack }) {
   };
 
   useEffect(() => {
-    if (!isNewGacha) {
+    if (currentGachaId) {
       fetchItems();
     }
-  }, [gacha.id, isNewGacha]);
+  }, [currentGachaId]);
 
   // ガチャ基本情報変更ハンドラ
   const handleFormChange = (key, value) => {
@@ -82,13 +85,22 @@ export default function AdminGachaEdit({ gacha, onBack }) {
 
       console.log('Sending gacha data:', gachaData); // デバッグ用
 
+      let result;
       if (isNewGacha) {
-        await myGachaAPI.createGacha(gachaData);
+        result = await myGachaAPI.createGacha(gachaData);
+        // 新規作成されたガチャのIDを保存
+        if (result.gacha && result.gacha.id) {
+          setCreatedGachaId(result.gacha.id);
+          setSuccessMessage('ガチャが正常に作成されました。続けてアイテムを追加できます。');
+        }
       } else {
-        await myGachaAPI.updateGacha(gacha.id, gachaData);
+        result = await myGachaAPI.updateGacha(gacha.id, gachaData);
       }
 
-      onBack(); // 一覧に戻る
+      // 新規作成の場合は一覧に戻らず、アイテム管理セクションを表示
+      if (!isNewGacha) {
+        onBack(); // 更新の場合のみ一覧に戻る
+      }
     } catch (err) {
       console.error('Gacha save error:', err); // デバッグ用
       
@@ -122,7 +134,6 @@ export default function AdminGachaEdit({ gacha, onBack }) {
       id: item.id,
       name: item.name,
       description: item.description || '',
-      rarity: item.rarity || 'common',
       stock: item.stock || 0,
       imageUrl: item.image_url || '',
       isPublic: item.is_public !== false
@@ -135,7 +146,6 @@ export default function AdminGachaEdit({ gacha, onBack }) {
       id: null,
       name: '',
       description: '',
-      rarity: 'common',
       stock: 0,
       imageUrl: '',
       isPublic: true
@@ -158,16 +168,15 @@ export default function AdminGachaEdit({ gacha, onBack }) {
       const itemData = {
         name: editItem.name.trim(),
         description: editItem.description.trim(),
-        rarity: editItem.rarity,
         stock: parseInt(editItem.stock),
         imageUrl: editItem.imageUrl.trim(),
         isPublic: editItem.isPublic
       };
 
       if (isNewItem) {
-        await myGachaAPI.createGachaItem(gacha.id, itemData);
+        await myGachaAPI.createGachaItem(currentGachaId, itemData);
       } else {
-        await myGachaAPI.updateGachaItem(gacha.id, editItem.id, itemData);
+        await myGachaAPI.updateGachaItem(currentGachaId, editItem.id, itemData);
       }
 
       setEditItem(null);
@@ -185,7 +194,7 @@ export default function AdminGachaEdit({ gacha, onBack }) {
 
   const handleItemDeleteConfirm = async () => {
     try {
-      await myGachaAPI.deleteGachaItem(gacha.id, deleteItemId);
+      await myGachaAPI.deleteGachaItem(currentGachaId, deleteItemId);
       setOpenDeleteItem(false);
       setDeleteItemId(null);
       await fetchItems(); // アイテム一覧を再取得
@@ -195,27 +204,10 @@ export default function AdminGachaEdit({ gacha, onBack }) {
     }
   };
 
-  const rarityOptions = [
-    { value: 'common', label: 'コモン', color: '#666' },
-    { value: 'rare', label: 'レア', color: '#2196f3' },
-    { value: 'srare', label: 'スーパーレア', color: '#ff9800' },
-    { value: 'ssr', label: 'SSR', color: '#f44336' }
-  ];
-
-  const getRarityLabel = (rarity) => {
-    const option = rarityOptions.find(opt => opt.value === rarity);
-    return option ? option.label : rarity;
-  };
-
-  const getRarityColor = (rarity) => {
-    const option = rarityOptions.find(opt => opt.value === rarity);
-    return option ? option.color : '#666';
-  };
-
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto', my: 4 }}>
       <Typography variant="h4" sx={{ mb: 3 }}>
-        {isNewGacha ? 'ガチャ新規作成' : 'ガチャ編集'}
+        {isNewGacha && !createdGachaId ? 'ガチャ新規作成' : 'ガチャ編集'}
       </Typography>
       
       <Button variant="outlined" sx={{ mb: 3 }} onClick={onBack}>
@@ -225,6 +217,12 @@ export default function AdminGachaEdit({ gacha, onBack }) {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}
+        </Alert>
+      )}
+
+      {successMessage && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccessMessage('')}>
+          {successMessage}
         </Alert>
       )}
 
@@ -288,13 +286,13 @@ export default function AdminGachaEdit({ gacha, onBack }) {
             disabled={loading}
             sx={{ alignSelf: 'flex-start' }}
           >
-            {loading ? <CircularProgress size={24} /> : (isNewGacha ? '作成' : '保存')}
+            {loading ? <CircularProgress size={24} /> : (isNewGacha && !createdGachaId ? '作成' : '保存')}
           </Button>
         </Box>
       </Paper>
 
-      {/* アイテム管理（既存ガチャのみ） */}
-      {!isNewGacha && (
+      {/* アイテム管理（ガチャが作成済みの場合） */}
+      {currentGachaId && (
         <Paper sx={{ p: 3 }}>
           <Typography variant="h5" sx={{ mb: 2 }}>アイテム管理</Typography>
           <Button variant="contained" color="primary" sx={{ mb: 2 }} onClick={handleItemNew}>
@@ -311,7 +309,6 @@ export default function AdminGachaEdit({ gacha, onBack }) {
                 <TableHead>
                   <TableRow>
                     <TableCell>アイテム名</TableCell>
-                    <TableCell>レアリティ</TableCell>
                     <TableCell>在庫</TableCell>
                     <TableCell>公開状態</TableCell>
                     <TableCell>画像</TableCell>
@@ -321,7 +318,7 @@ export default function AdminGachaEdit({ gacha, onBack }) {
                 <TableBody>
                   {items.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} align="center">
+                      <TableCell colSpan={5} align="center">
                         アイテムがありません
                       </TableCell>
                     </TableRow>
@@ -329,11 +326,6 @@ export default function AdminGachaEdit({ gacha, onBack }) {
                     items.map(item => (
                       <TableRow key={item.id}>
                         <TableCell>{item.name}</TableCell>
-                        <TableCell>
-                          <Typography sx={{ color: getRarityColor(item.rarity), fontWeight: 'bold' }}>
-                            {getRarityLabel(item.rarity)}
-                          </Typography>
-                        </TableCell>
                         <TableCell>{item.stock}</TableCell>
                         <TableCell>
                           <Switch checked={item.is_public} disabled />
@@ -383,22 +375,6 @@ export default function AdminGachaEdit({ gacha, onBack }) {
                   multiline 
                   minRows={2} 
                 />
-                <FormControl fullWidth>
-                  <InputLabel>レアリティ</InputLabel>
-                  <Select
-                    value={editItem.rarity}
-                    label="レアリティ"
-                    onChange={e => setEditItem({ ...editItem, rarity: e.target.value })}
-                  >
-                    {rarityOptions.map(option => (
-                      <MenuItem key={option.value} value={option.value}>
-                        <Typography sx={{ color: option.color, fontWeight: 'bold' }}>
-                          {option.label}
-                        </Typography>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
                 <TextField 
                   label="在庫数" 
                   type="number" 
