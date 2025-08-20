@@ -18,15 +18,18 @@
 
 ### 👤 ユーザー機能
 - **ユーザー認証**: 新規登録・ログイン・ログアウト
-- **ガチャ一覧**: 公開中のガチャ一覧表示
-- **ガチャ詳細**: ガチャの詳細情報とアイテム確認
-- **ガチャ実行**: 1回または複数回のガチャ実行
-- **ガチャ演出**: モダンなアニメーション付きガチャ演出
+- **ガチャ一覧**: 公開中のガチャ一覧表示（部分実装）
+- **ガチャ詳細**: ガチャの詳細情報とアイテム確認（部分実装）
+- **ガチャ実行**: 1回または複数回のガチャ実行（未実装）
+- **ガチャ演出**: モダンなアニメーション付きガチャ演出（未実装）
 
-### 🛠️ 管理者機能
-- **ガチャ管理**: ガチャの作成・編集・削除
+### 🛠️ ガチャ管理機能
+- **ガチャ管理**: 自分のガチャの作成・編集・削除
 - **アイテム管理**: ガチャアイテムの設定・在庫管理
-- **ユーザー管理**: ユーザーアカウントの管理
+- **公開状態管理**: ガチャの公開/非公開の即座切り替え
+- **ページネーション**: ガチャ一覧のページング機能
+
+**注意**: すべてのユーザーは同等の権限を持ち、ガチャの作成と実行の両方が可能です。
 
 ## 🛠️ 技術スタック
 
@@ -34,13 +37,12 @@
 - **React 18**: UIライブラリ
 - **Material-UI (MUI)**: UIコンポーネント
 - **Framer Motion**: アニメーション
-- **React Hook Form**: フォーム管理
-- **Yup**: バリデーション
+- **React Router**: ページルーティング
 
 ### バックエンド
 - **Node.js**: ランタイム環境
-- **Fastify**: Webフレームワーク
-- **JWT**: 認証トークン
+- **Fastify**: 高速Webフレームワーク
+- **JWT**: 認証トークン（HTTPOnly Cookie）
 - **bcrypt**: パスワードハッシュ化
 - **Joi**: サーバーサイドバリデーション
 
@@ -106,18 +108,21 @@ make seed
 2. **ログイン**
    - http://localhost:3000/login でログイン
 
-3. **ガチャを楽しむ**
-   - ガチャ一覧から好きなガチャを選択
-   - ガチャ詳細でアイテムを確認
-   - ガチャを実行してアイテムを獲得
+3. **ガチャ管理**
+   - ヘッダーの「ガチャ管理」から自分のガチャを管理
+   - 新規ガチャ作成・編集・削除が可能
+   - アイテム管理機能でガチャの内容を設定
 
-### 管理者機能の使用
+### ガチャ管理機能の使用
 
-1. **管理者権限でログイン**
-   - 管理者アカウントでログイン
+1. **ガチャ作成**
+   - 「新規ガチャ作成」ボタンをクリック
+   - ガチャ名、説明、価格、公開設定等を入力
+   - 作成後、アイテム管理セクションが表示される
 
-2. **ガチャ管理**
-   - マイガチャページでガチャの作成・編集・削除
+2. **アイテム管理**
+   - 「アイテム追加」でガチャ内容を設定
+   - アイテム名、説明、在庫数、画像URLを設定
 
 ## 🔌 API仕様
 
@@ -127,12 +132,24 @@ POST /api/auth/register   # ユーザー登録
 POST /api/auth/login      # ログイン
 POST /api/auth/logout     # ログアウト
 GET  /api/auth/me         # ユーザー情報取得
-POST /api/auth/change-password  # パスワード変更
 \`\`\`
 
-### ガチャ関連
+### ガチャ管理関連
 \`\`\`
-GET  /api/gachas          # ガチャ一覧取得
+GET  /api/my/gachas                           # 自分のガチャ一覧取得
+POST /api/my/gachas                           # ガチャ新規作成
+PUT  /api/my/gachas/:id                       # ガチャ編集
+DELETE /api/my/gachas/:id                     # ガチャ削除
+PATCH /api/my/gachas/:id/public               # 公開状態切り替え
+GET  /api/my/gachas/:id/items                 # アイテム一覧取得
+POST /api/my/gachas/:id/items                 # アイテム追加
+PUT  /api/my/gachas/:gachaId/items/:itemId    # アイテム編集
+DELETE /api/my/gachas/:gachaId/items/:itemId  # アイテム削除
+\`\`\`
+
+### ガチャ実行関連（未実装）
+\`\`\`
+GET  /api/gachas          # 公開ガチャ一覧取得
 GET  /api/gachas/:id      # ガチャ詳細取得
 POST /api/gachas/:id/draw # ガチャ実行（認証必要）
 \`\`\`
@@ -142,24 +159,42 @@ POST /api/gachas/:id/draw # ガチャ実行（認証必要）
 \`\`\`
 online-gacha/
 ├── doc/                          # 設計ドキュメント
+│   ├── OnlineGachaBasicDesign.md # 基本設計書
+│   ├── TableDefinition.md        # テーブル定義
+│   └── DetailedDesign/           # 詳細設計
+│       ├── AdminGachaManage.md   # ガチャ管理画面設計
+│       └── ...
 ├── frontend/                     # Reactフロントエンド
 │   ├── src/
-│   │   ├── components/          # 再利用可能コンポーネント
-│   │   ├── UserGachaList.js     # ガチャ一覧画面
-│   │   ├── UserGachaDetail.js   # ガチャ詳細画面
-│   │   ├── GachaPerformance.js  # ガチャ演出画面
+│   │   ├── App.js               # メインアプリケーション
+│   │   ├── UserGachaList.js     # ガチャ一覧画面（部分実装）
+│   │   ├── UserGachaDetail.js   # ガチャ詳細画面（部分実装）
+│   │   ├── GachaPerformance.js  # ガチャ演出画面（部分実装）
 │   │   ├── LoginForm.js         # ログイン画面
-│   │   ├── MyGachaList.js       # マイガチャ管理画面
-│   │   └── AdminGachaManage.js  # ガチャ管理画面
+│   │   ├── RegisterForm.js      # 新規登録画面
+│   │   ├── AdminGachaManage.js  # ガチャ管理一覧画面
+│   │   ├── AdminGachaEdit.js    # ガチャ編集・作成画面
+│   │   ├── utils/
+│   │   │   └── api.js           # API通信ユーティリティ
+│   │   └── theme.js             # Material-UIテーマ
 │   └── public/
 ├── web/                          # Node.js/Fastifyバックエンド
 │   ├── src/
-│   │   ├── config/              # 設定ファイル
-│   │   ├── middleware/          # ミドルウェア
-│   │   ├── routes/              # API ルート
-│   │   ├── models/              # データモデル
-│   │   ├── utils/               # ユーティリティ
-│   │   └── schemas/             # バリデーションスキーマ
+│   │   ├── config/
+│   │   │   └── database.js      # データベース設定
+│   │   ├── middleware/
+│   │   │   └── auth.js          # JWT認証ミドルウェア
+│   │   ├── routes/
+│   │   │   ├── auth.js          # 認証API
+│   │   │   ├── admin.js         # ガチャ管理API
+│   │   │   └── gacha.js         # ガチャ実行API（部分実装）
+│   │   ├── models/
+│   │   │   ├── User.js          # ユーザーモデル
+│   │   │   └── Gacha.js         # ガチャモデル
+│   │   ├── schemas/
+│   │   │   └── validation.js    # Joiバリデーションスキーマ
+│   │   └── utils/
+│   │       └── helpers.js       # ヘルパー関数
 │   ├── migrations/              # データベースマイグレーション
 │   └── seeds/                   # サンプルデータ
 ├── docker-compose.yml           # Docker設定
@@ -198,37 +233,38 @@ make clean
 
 #### users テーブル
 \`\`\`sql
-- id: ユーザーID
-- name: ユーザー名
-- email: メールアドレス
-- password: ハッシュ化されたパスワード
-- role: ユーザー権限 ('user' | 'admin')
-- created_at, updated_at: タイムスタンプ
+- id: ユーザーID（SERIAL PRIMARY KEY）
+- name: ユーザー名（VARCHAR(64) NOT NULL）
+- email: メールアドレス（VARCHAR(255) UNIQUE NOT NULL）
+- password_hash: ハッシュ化されたパスワード（VARCHAR(255) NOT NULL）
+- created_at, updated_at: タイムスタンプ（TIMESTAMP DEFAULT CURRENT_TIMESTAMP）
 \`\`\`
 
 #### gachas テーブル
 \`\`\`sql
-- id: ガチャID
-- name: ガチャ名
-- description: 説明
-- price: 価格
-- user_id: 作成者ID
-- is_public: 公開状態
-- display_from, display_to: 表示期間
-- created_at, updated_at: タイムスタンプ
+- id: ガチャID（SERIAL PRIMARY KEY）
+- name: ガチャ名（VARCHAR(128) NOT NULL）
+- description: 説明（TEXT）
+- price: 価格（INTEGER NOT NULL）
+- user_id: 作成者ID（INTEGER FOREIGN KEY）
+- is_public: 公開状態（BOOLEAN DEFAULT TRUE）
+- display_from, display_to: 表示期間（TIMESTAMP）
+- created_at, updated_at: タイムスタンプ（TIMESTAMP DEFAULT CURRENT_TIMESTAMP）
 \`\`\`
 
 #### gacha_items テーブル
 \`\`\`sql
-- id: アイテムID
-- gacha_id: 所属ガチャID
-- name: アイテム名
-- description: 説明
-- image_url: 画像URL
-- stock: 現在在庫数
-- is_public: 公開状態
-- created_at, updated_at: タイムスタンプ
+- id: アイテムID（SERIAL PRIMARY KEY）
+- gacha_id: 所属ガチャID（INTEGER FOREIGN KEY）
+- name: アイテム名（VARCHAR(128) NOT NULL）
+- description: 説明（TEXT）
+- image_url: 画像URL（VARCHAR(255)）
+- stock: 現在在庫数（INTEGER）
+- is_public: 公開状態（BOOLEAN DEFAULT TRUE）
+- created_at, updated_at: タイムスタンプ（TIMESTAMP DEFAULT CURRENT_TIMESTAMP）
 \`\`\`
+
+**注意**: roleカラムやrarityカラムは現在の実装では削除されています。
 
 ### セキュリティ考慮事項
 
@@ -263,7 +299,7 @@ make clean
    # JWT設定の確認
    cat web/.env | grep JWT_SECRET
    
-   # クッキーのクリア（ブラウザ）
+   # ブラウザのクッキー・ローカルストレージをクリア
    \`\`\`
 
 4. **フロントエンドが表示されない**
@@ -286,3 +322,22 @@ docker compose logs web
 docker compose logs frontend
 docker compose logs db
 \`\`\`
+
+### 現在の実装状況
+
+✅ **実装完了**
+- ユーザー認証（登録・ログイン・ログアウト）
+- ガチャ管理（作成・編集・削除・公開状態切り替え）
+- アイテム管理（追加・編集・削除）
+- ページネーション機能
+- JWT認証とHTTPOnly Cookie
+
+🚧 **部分実装**
+- ガチャ一覧表示（ユーザー向け）
+- ガチャ詳細表示
+
+❌ **未実装**
+- ガチャ実行機能
+- ガチャ演出
+- プロフィール管理
+- ガチャ実行履歴
