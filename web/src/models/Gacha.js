@@ -178,11 +178,15 @@ class Gacha {
 
   // ユーザー用のガチャ作成
   static async createForUser({ name, description, price, isPublic = true, displayFrom, displayTo, userId }) {
+    // 空文字列をnullに変換
+    const parsedDisplayFrom = displayFrom && displayFrom.trim() !== '' ? displayFrom : null;
+    const parsedDisplayTo = displayTo && displayTo.trim() !== '' ? displayTo : null;
+    
     const result = await database.query(`
       INSERT INTO gachas (name, description, price, is_public, display_from, display_to, user_id)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id, name, description, price, is_public, display_from, display_to, created_at, user_id
-    `, [name, description, price, isPublic, displayFrom, displayTo, userId]);
+    `, [name, description, price, isPublic, parsedDisplayFrom, parsedDisplayTo, userId]);
 
     const createdGacha = result.rows[0];
     
@@ -195,44 +199,20 @@ class Gacha {
     return new Gacha(createdGacha);
   }
 
-  // ユーザー用のガチャ更新
-  static async updateByIdForUser(gachaId, userId, { name, description, price, isPublic, displayFrom, displayTo }) {
+    // ユーザー用のガチャ更新
+  static async updateByIdForUser(id, { name, description, price, isPublic, displayFrom, displayTo }, userId) {
+    // 空文字列をnullに変換
+    const parsedDisplayFrom = displayFrom && displayFrom.trim() !== '' ? displayFrom : null;
+    const parsedDisplayTo = displayTo && displayTo.trim() !== '' ? displayTo : null;
+    
     const result = await database.query(`
       UPDATE gachas 
-      SET name = $1, description = $2, price = $3, is_public = $4, 
-          display_from = $5, display_to = $6, updated_at = CURRENT_TIMESTAMP
+      SET name = $1, description = $2, price = $3, is_public = $4, display_from = $5, display_to = $6
       WHERE id = $7 AND user_id = $8
-      RETURNING id, name, description, price, is_public, display_from, display_to, created_at, updated_at, user_id
-    `, [name, description, price, isPublic, displayFrom, displayTo, gachaId, userId]);
+      RETURNING id, name, description, price, is_public, display_from, display_to, created_at, user_id
+    `, [name, description, price, isPublic, parsedDisplayFrom, parsedDisplayTo, id, userId]);
 
-    if (result.rows.length === 0) {
-      return null;
-    }
-
-    const updatedGacha = result.rows[0];
-    
-    // creator_nameを取得
-    const userResult = await database.query('SELECT name FROM users WHERE id = $1', [userId]);
-    updatedGacha.creator_name = userResult.rows[0]?.name;
-
-    // 統計情報を取得
-    const statsResult = await database.query(`
-      SELECT 
-        COUNT(gi.id) as total_items,
-        COUNT(CASE WHEN gi.stock > 0 THEN 1 END) as available_items
-      FROM gacha_items gi
-      WHERE gi.gacha_id = $1
-    `, [gachaId]);
-
-    if (statsResult.rows.length > 0) {
-      updatedGacha.total_items = statsResult.rows[0].total_items;
-      updatedGacha.available_items = statsResult.rows[0].available_items;
-    } else {
-      updatedGacha.total_items = 0;
-      updatedGacha.available_items = 0;
-    }
-
-    return new Gacha(updatedGacha);
+    return result.rows[0];
   }
 
   // ユーザー用のガチャ削除

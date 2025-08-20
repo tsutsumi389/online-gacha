@@ -80,6 +80,8 @@ export default function AdminGachaEdit({ gacha, onBack }) {
         displayTo: form.displayTo || null,
       };
 
+      console.log('Sending gacha data:', gachaData); // デバッグ用
+
       if (isNewGacha) {
         await myGachaAPI.createGacha(gachaData);
       } else {
@@ -88,7 +90,27 @@ export default function AdminGachaEdit({ gacha, onBack }) {
 
       onBack(); // 一覧に戻る
     } catch (err) {
-      setError('ガチャの保存に失敗しました: ' + err.message);
+      console.error('Gacha save error:', err); // デバッグ用
+      
+      // APIエラーレスポンスの詳細を表示
+      let errorMessage = 'ガチャの保存に失敗しました';
+      
+      if (err.message) {
+        try {
+          // エラーメッセージがJSONの場合
+          const errorData = JSON.parse(err.message);
+          if (errorData.details) {
+            errorMessage += ': ' + errorData.details;
+          } else {
+            errorMessage += ': ' + err.message;
+          }
+        } catch {
+          // JSONでない場合はそのまま表示
+          errorMessage += ': ' + err.message;
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

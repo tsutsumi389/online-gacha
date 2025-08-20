@@ -88,12 +88,18 @@ export default async function userGachaRoutes(fastify, options) {
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     try {
+      // リクエストボディをログ出力
+      fastify.log.info('Create gacha request body:', request.body);
+
       // バリデーション
       const { error, value } = createGachaSchema.validate(request.body);
       if (error) {
+        fastify.log.error('Validation error:', error.details);
         return reply.code(400).send({
           error: 'Validation failed',
-          details: error.details[0].message
+          details: error.details[0].message,
+          field: error.details[0].path.join('.'),
+          receivedValue: error.details[0].context.value
         });
       }
 
@@ -141,7 +147,7 @@ export default async function userGachaRoutes(fastify, options) {
       }
 
       // ガチャ更新
-      const updatedGacha = await Gacha.updateByIdForUser(gachaId, value, request.user.userId);
+      const updatedGacha = await Gacha.updateByIdForUser(gachaId, request.user.userId, value);
 
       return reply.send({
         message: 'Gacha updated successfully',
