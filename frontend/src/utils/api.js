@@ -119,6 +119,11 @@ export const myGachaAPI = {
     return apiRequest(endpoint);
   },
 
+  // 自分のガチャ詳細取得（アイテム付き）
+  getGacha: async (id) => {
+    return apiRequest(`/api/my/gachas/${id}`);
+  },
+
   // 自分のガチャ作成
   createGacha: async (gachaData) => {
     return apiRequest('/api/my/gachas', {
@@ -146,6 +151,34 @@ export const myGachaAPI = {
   toggleGachaPublic: async (id) => {
     return apiRequest(`/api/my/gachas/${id}/toggle-public`, {
       method: 'PUT',
+    });
+  },
+
+  // ガチャアイテム一覧取得
+  getGachaItems: async (gachaId) => {
+    return apiRequest(`/api/my/gachas/${gachaId}/items`);
+  },
+
+  // ガチャアイテム作成
+  createGachaItem: async (gachaId, itemData) => {
+    return apiRequest(`/api/my/gachas/${gachaId}/items`, {
+      method: 'POST',
+      body: JSON.stringify(itemData),
+    });
+  },
+
+  // ガチャアイテム更新
+  updateGachaItem: async (gachaId, itemId, itemData) => {
+    return apiRequest(`/api/my/gachas/${gachaId}/items/${itemId}`, {
+      method: 'PUT',
+      body: JSON.stringify(itemData),
+    });
+  },
+
+  // ガチャアイテム削除
+  deleteGachaItem: async (gachaId, itemId) => {
+    return apiRequest(`/api/my/gachas/${gachaId}/items/${itemId}`, {
+      method: 'DELETE',
     });
   },
 };

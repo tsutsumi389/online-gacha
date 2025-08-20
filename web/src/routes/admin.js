@@ -1,6 +1,6 @@
 // ユーザーガチャ管理ルート（全ユーザー用）
 import Gacha from '../models/Gacha.js';
-import { createGachaSchema, updateGachaSchema } from '../schemas/validation.js';
+import { createGachaSchema, updateGachaSchema, createGachaItemSchema, updateGachaItemSchema } from '../schemas/validation.js';
 
 export default async function userGachaRoutes(fastify, options) {
   // ユーザーのガチャ一覧取得
@@ -177,6 +177,172 @@ export default async function userGachaRoutes(fastify, options) {
       return reply.send({
         message: 'Gacha visibility toggled successfully',
         gacha: updatedGacha
+      });
+
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // ユーザーのガチャ詳細取得（アイテム付き）
+  fastify.get('/gachas/:id', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const gachaId = parseInt(request.params.id);
+
+      if (isNaN(gachaId)) {
+        return reply.code(400).send({ error: 'Invalid gacha ID' });
+      }
+
+      // ガチャとアイテムの詳細取得
+      const gacha = await Gacha.findByIdForUserWithItems(gachaId, request.user.userId);
+      if (!gacha) {
+        return reply.code(404).send({ error: 'Gacha not found or access denied' });
+      }
+
+      return reply.send(gacha.toJSON());
+
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // ガチャアイテム一覧取得
+  fastify.get('/gachas/:id/items', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const gachaId = parseInt(request.params.id);
+
+      if (isNaN(gachaId)) {
+        return reply.code(400).send({ error: 'Invalid gacha ID' });
+      }
+
+      // ガチャの所有者チェック
+      const gacha = await Gacha.findByIdForUser(gachaId, request.user.userId);
+      if (!gacha) {
+        return reply.code(404).send({ error: 'Gacha not found or access denied' });
+      }
+
+      // ガチャアイテム一覧取得
+      const items = await Gacha.getItemsForUser(gachaId, request.user.userId);
+
+      return reply.send({ items });
+
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // ガチャアイテム作成
+  fastify.post('/gachas/:id/items', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const gachaId = parseInt(request.params.id);
+
+      if (isNaN(gachaId)) {
+        return reply.code(400).send({ error: 'Invalid gacha ID' });
+      }
+
+      // バリデーション
+      const { error, value } = createGachaItemSchema.validate(request.body);
+      if (error) {
+        return reply.code(400).send({
+          error: 'Validation failed',
+          details: error.details[0].message
+        });
+      }
+
+      // ガチャの所有者チェック
+      const gacha = await Gacha.findByIdForUser(gachaId, request.user.userId);
+      if (!gacha) {
+        return reply.code(404).send({ error: 'Gacha not found or access denied' });
+      }
+
+      // アイテム作成
+      const newItem = await Gacha.createItemForUser(gachaId, value, request.user.userId);
+
+      return reply.code(201).send({
+        message: 'Gacha item created successfully',
+        item: newItem
+      });
+
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // ガチャアイテム更新
+  fastify.put('/gachas/:gachaId/items/:itemId', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const gachaId = parseInt(request.params.gachaId);
+      const itemId = parseInt(request.params.itemId);
+
+      if (isNaN(gachaId) || isNaN(itemId)) {
+        return reply.code(400).send({ error: 'Invalid gacha ID or item ID' });
+      }
+
+      // バリデーション
+      const { error, value } = updateGachaItemSchema.validate(request.body);
+      if (error) {
+        return reply.code(400).send({
+          error: 'Validation failed',
+          details: error.details[0].message
+        });
+      }
+
+      // ガチャの所有者チェック
+      const gacha = await Gacha.findByIdForUser(gachaId, request.user.userId);
+      if (!gacha) {
+        return reply.code(404).send({ error: 'Gacha not found or access denied' });
+      }
+
+      // アイテム更新
+      const updatedItem = await Gacha.updateItemForUser(gachaId, itemId, value, request.user.userId);
+
+      return reply.send({
+        message: 'Gacha item updated successfully',
+        item: updatedItem
+      });
+
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // ガチャアイテム削除
+  fastify.delete('/gachas/:gachaId/items/:itemId', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const gachaId = parseInt(request.params.gachaId);
+      const itemId = parseInt(request.params.itemId);
+
+      if (isNaN(gachaId) || isNaN(itemId)) {
+        return reply.code(400).send({ error: 'Invalid gacha ID or item ID' });
+      }
+
+      // ガチャの所有者チェック
+      const gacha = await Gacha.findByIdForUser(gachaId, request.user.userId);
+      if (!gacha) {
+        return reply.code(404).send({ error: 'Gacha not found or access denied' });
+      }
+
+      // アイテム削除
+      await Gacha.deleteItemForUser(gachaId, itemId, request.user.userId);
+
+      return reply.send({
+        message: 'Gacha item deleted successfully',
+        deletedItemId: itemId
       });
 
     } catch (error) {

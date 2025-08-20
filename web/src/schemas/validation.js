@@ -53,3 +53,48 @@ export const updateGachaSchema = Joi.object({
   displayFrom: Joi.date().optional(),
   displayTo: Joi.date().optional()
 });
+
+// ガチャアイテム作成スキーマ
+export const createGachaItemSchema = Joi.object({
+  name: Joi.string().min(1).max(128).required().messages({
+    'string.min': 'アイテム名は1文字以上で入力してください',
+    'string.max': 'アイテム名は128文字以下で入力してください',
+    'any.required': 'アイテム名は必須です'
+  }),
+  description: Joi.string().max(1000).optional().allow('').messages({
+    'string.max': '説明は1000文字以下で入力してください'
+  }),
+  rarity: Joi.string().valid('common', 'rare', 'srare', 'ssr').default('common').messages({
+    'any.only': 'レアリティは common, rare, srare, ssr のいずれかを選択してください'
+  }),
+  stock: Joi.number().integer().min(0).default(0).messages({
+    'number.min': '在庫数は0以上で入力してください',
+    'number.integer': '在庫数は整数で入力してください'
+  }),
+  imageUrl: Joi.string().uri().optional().allow('').messages({
+    'string.uri': '画像URLの形式が正しくありません'
+  }),
+  isPublic: Joi.boolean().default(true)
+});
+
+// ガチャアイテム更新スキーマ
+export const updateGachaItemSchema = Joi.object({
+  name: Joi.string().min(1).max(128).optional().messages({
+    'string.min': 'アイテム名は1文字以上で入力してください',
+    'string.max': 'アイテム名は128文字以下で入力してください'
+  }),
+  description: Joi.string().max(1000).optional().allow('').messages({
+    'string.max': '説明は1000文字以下で入力してください'
+  }),
+  rarity: Joi.string().valid('common', 'rare', 'srare', 'ssr').optional().messages({
+    'any.only': 'レアリティは common, rare, srare, ssr のいずれかを選択してください'
+  }),
+  stock: Joi.number().integer().min(0).optional().messages({
+    'number.min': '在庫数は0以上で入力してください',
+    'number.integer': '在庫数は整数で入力してください'
+  }),
+  imageUrl: Joi.string().uri().optional().allow('').messages({
+    'string.uri': '画像URLの形式が正しくありません'
+  }),
+  isPublic: Joi.boolean().optional()
+});

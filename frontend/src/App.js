@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-
 import { AppBar, Toolbar, Typography, Button, Box, CircularProgress } from '@mui/material';
 import LoginForm from './LoginForm';
 import RegisterForm from './RegisterForm';
-import MyGachaList from './MyGachaList';
+import AdminGachaManage from './AdminGachaManage';
 import UserGachaList from './UserGachaList';
 import { authAPI } from './utils/api';
 
@@ -175,7 +175,7 @@ function App() {
         {/* 保護されたページ（認証が必要） */}
         <Route path="/my-gacha" element={
           <PrivateRoute>
-            <MyGachaList />
+            <AdminGachaManage />
           </PrivateRoute>
         } />
 
