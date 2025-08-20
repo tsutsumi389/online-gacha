@@ -7,11 +7,10 @@
 | name             | VARCHAR(64)  | NOT NULL       | ユーザー名     |
 | email            | VARCHAR(255) | UNIQUE,NOT NULL| メールアドレス |
 | password_hash    | VARCHAR(255) | NOT NULL       | パスワードハッシュ |
-| role             | VARCHAR(20)  | NOT NULL, DEFAULT 'user' | ユーザーロール（'user', 'admin'） |
-| created_at       | TIMESTAMP    | NOT NULL       | 登録日時       |
-| updated_at       | TIMESTAMP    | NOT NULL       | 更新日時       |
+| created_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 登録日時       |
+| updated_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 更新日時       |
 
-**注意**: すべてのユーザーは `users` テーブルで管理されます。`role` カラムで一般ユーザー（'user'）と管理者（'admin'）を区別します。すべてのユーザーがガチャの作成と実行の両方が可能です。
+**注意**: roleカラムは削除されました。すべてのユーザーは同等の権限を持ち、ガチャの作成と実行の両方が可能です。
 
 ## gachas（ガチャ情報）
 | カラム名         | 型           | 制約           | 説明           |
@@ -24,8 +23,8 @@
 | is_public        | BOOLEAN      | NOT NULL, DEFAULT TRUE | 公開/非公開  |
 | display_from     | TIMESTAMP    |                | 表示開始日時   |
 | display_to       | TIMESTAMP    |                | 表示終了日時   |
-| created_at       | TIMESTAMP    | NOT NULL       | 作成日時       |
-| updated_at       | TIMESTAMP    | NOT NULL       | 更新日時       |
+| created_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 作成日時       |
+| updated_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 更新日時       |
 
 ## gachas_images（ガチャ画像情報）
 | カラム名         | 型           | 制約           | 説明           |
@@ -46,8 +45,10 @@
 | image_url        | VARCHAR(255) |                | 商品画像URL    |
 | stock            | INTEGER      |                | 在庫数         |
 | is_public        | BOOLEAN      | NOT NULL, DEFAULT TRUE | 公開/非公開  |
-| created_at       | TIMESTAMP    | NOT NULL       | 作成日時       |
-| updated_at       | TIMESTAMP    | NOT NULL       | 更新日時       |
+| created_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 作成日時       |
+| updated_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 更新日時       |
+
+**注意**: rarityカラムは実装から除外されました。レアリティ機能は現在の仕様には含まれていません。
 
 ## gacha_results（ガチャ実行履歴）
 | カラム名         | 型           | 制約           | 説明           |

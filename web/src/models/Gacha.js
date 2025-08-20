@@ -51,7 +51,7 @@ class Gacha {
         COUNT(gi.id) as total_items,
         COUNT(CASE WHEN gi.stock > 0 THEN 1 END) as available_items
       FROM gachas g
-      LEFT JOIN users u ON g.created_by = u.id
+      LEFT JOIN users u ON g.user_id = u.id
       LEFT JOIN gacha_items gi ON g.id = gi.gacha_id
       WHERE g.is_public = true 
         AND g.display_from <= CURRENT_TIMESTAMP 
@@ -74,7 +74,7 @@ class Gacha {
         COUNT(gi.id) as total_items,
         COUNT(CASE WHEN gi.stock > 0 THEN 1 END) as available_items
       FROM gachas g
-      LEFT JOIN users u ON g.created_by = u.id
+      LEFT JOIN users u ON g.user_id = u.id
       LEFT JOIN gacha_items gi ON g.id = gi.gacha_id
       WHERE g.id = $1 AND g.is_public = true
       GROUP BY g.id, g.name, g.description, g.price, g.is_public, 
@@ -106,7 +106,7 @@ class Gacha {
     const finalSortBy = validSortColumns.includes(sortBy) ? sortBy : 'created_at';
     const finalSortOrder = validSortOrders.includes(sortOrder.toUpperCase()) ? sortOrder.toUpperCase() : 'DESC';
 
-    let whereClause = 'WHERE g.created_by = $1';
+    let whereClause = 'WHERE g.user_id = $1';
     let queryParams = [userId];
     
     if (search) {
@@ -128,7 +128,7 @@ class Gacha {
         COUNT(gi.id) as total_items,
         COUNT(CASE WHEN gi.stock > 0 THEN 1 END) as available_items
       FROM gachas g
-      LEFT JOIN users u ON g.created_by = u.id
+      LEFT JOIN users u ON g.user_id = u.id
       LEFT JOIN gacha_items gi ON g.id = gi.gacha_id
       ${whereClause}
       GROUP BY g.id, g.name, g.description, g.price, g.is_public, 
@@ -162,9 +162,9 @@ class Gacha {
         COUNT(gi.id) as total_items,
         COUNT(CASE WHEN gi.stock > 0 THEN 1 END) as available_items
       FROM gachas g
-      LEFT JOIN users u ON g.created_by = u.id
+      LEFT JOIN users u ON g.user_id = u.id
       LEFT JOIN gacha_items gi ON g.id = gi.gacha_id
-      WHERE g.id = $1 AND g.created_by = $2
+      WHERE g.id = $1 AND g.user_id = $2
       GROUP BY g.id, g.name, g.description, g.price, g.is_public, 
                g.display_from, g.display_to, g.created_at, g.updated_at, u.name
     `, [gachaId, userId]);
@@ -178,11 +178,15 @@ class Gacha {
 
   // ユーザー用のガチャ作成
   static async createForUser({ name, description, price, isPublic = true, displayFrom, displayTo, userId }) {
+    // 空文字列をnullに変換
+    const parsedDisplayFrom = displayFrom && displayFrom.trim() !== '' ? displayFrom : null;
+    const parsedDisplayTo = displayTo && displayTo.trim() !== '' ? displayTo : null;
+    
     const result = await database.query(`
-      INSERT INTO gachas (name, description, price, is_public, display_from, display_to, created_by)
+      INSERT INTO gachas (name, description, price, is_public, display_from, display_to, user_id)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING id, name, description, price, is_public, display_from, display_to, created_at, created_by
-    `, [name, description, price, isPublic, displayFrom, displayTo, userId]);
+      RETURNING id, name, description, price, is_public, display_from, display_to, created_at, user_id
+    `, [name, description, price, isPublic, parsedDisplayFrom, parsedDisplayTo, userId]);
 
     const createdGacha = result.rows[0];
     
@@ -195,44 +199,20 @@ class Gacha {
     return new Gacha(createdGacha);
   }
 
-  // ユーザー用のガチャ更新
-  static async updateByIdForUser(gachaId, userId, { name, description, price, isPublic, displayFrom, displayTo }) {
+    // ユーザー用のガチャ更新
+  static async updateByIdForUser(id, { name, description, price, isPublic, displayFrom, displayTo }, userId) {
+    // 空文字列をnullに変換
+    const parsedDisplayFrom = displayFrom && displayFrom.trim() !== '' ? displayFrom : null;
+    const parsedDisplayTo = displayTo && displayTo.trim() !== '' ? displayTo : null;
+    
     const result = await database.query(`
       UPDATE gachas 
-      SET name = $1, description = $2, price = $3, is_public = $4, 
-          display_from = $5, display_to = $6, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $7 AND created_by = $8
-      RETURNING id, name, description, price, is_public, display_from, display_to, created_at, updated_at, created_by
-    `, [name, description, price, isPublic, displayFrom, displayTo, gachaId, userId]);
+      SET name = $1, description = $2, price = $3, is_public = $4, display_from = $5, display_to = $6
+      WHERE id = $7 AND user_id = $8
+      RETURNING id, name, description, price, is_public, display_from, display_to, created_at, user_id
+    `, [name, description, price, isPublic, parsedDisplayFrom, parsedDisplayTo, id, userId]);
 
-    if (result.rows.length === 0) {
-      return null;
-    }
-
-    const updatedGacha = result.rows[0];
-    
-    // creator_nameを取得
-    const userResult = await database.query('SELECT name FROM users WHERE id = $1', [userId]);
-    updatedGacha.creator_name = userResult.rows[0]?.name;
-
-    // 統計情報を取得
-    const statsResult = await database.query(`
-      SELECT 
-        COUNT(gi.id) as total_items,
-        COUNT(CASE WHEN gi.stock > 0 THEN 1 END) as available_items
-      FROM gacha_items gi
-      WHERE gi.gacha_id = $1
-    `, [gachaId]);
-
-    if (statsResult.rows.length > 0) {
-      updatedGacha.total_items = statsResult.rows[0].total_items;
-      updatedGacha.available_items = statsResult.rows[0].available_items;
-    } else {
-      updatedGacha.total_items = 0;
-      updatedGacha.available_items = 0;
-    }
-
-    return new Gacha(updatedGacha);
+    return result.rows[0];
   }
 
   // ユーザー用のガチャ削除
@@ -242,9 +222,134 @@ class Gacha {
     
     const result = await database.query(`
       DELETE FROM gachas 
-      WHERE id = $1 AND created_by = $2
+      WHERE id = $1 AND user_id = $2
       RETURNING id
     `, [gachaId, userId]);
+
+    return result.rows.length > 0;
+  }
+
+  // ユーザー用のガチャ詳細取得（アイテム付き）
+  static async findByIdForUserWithItems(gachaId, userId) {
+    const gachaResult = await database.query(`
+      SELECT 
+        g.id, g.name, g.description, g.price,
+        g.is_public, g.display_from, g.display_to, g.created_at, g.updated_at,
+        u.name as creator_name,
+        COUNT(gi.id) as total_items,
+        COUNT(CASE WHEN gi.stock > 0 THEN 1 END) as available_items
+      FROM gachas g
+      LEFT JOIN users u ON g.user_id = u.id
+      LEFT JOIN gacha_items gi ON g.id = gi.gacha_id
+      WHERE g.id = $1 AND g.user_id = $2
+      GROUP BY g.id, g.name, g.description, g.price, g.is_public, 
+               g.display_from, g.display_to, g.created_at, g.updated_at, u.name
+    `, [gachaId, userId]);
+
+    if (gachaResult.rows.length === 0) {
+      return null;
+    }
+
+    const itemsResult = await database.query(`
+      SELECT id, name, description, rarity, stock, image_url, is_public
+      FROM gacha_items
+      WHERE gacha_id = $1
+      ORDER BY rarity DESC, name
+    `, [gachaId]);
+
+    const gachaData = gachaResult.rows[0];
+    gachaData.items = itemsResult.rows;
+
+    return new Gacha(gachaData);
+  }
+
+  // ガチャアイテム一覧取得
+  static async getItemsForUser(gachaId, userId) {
+    // ガチャの所有者チェック
+    const ownerCheck = await database.query(`
+      SELECT id FROM gachas WHERE id = $1 AND user_id = $2
+    `, [gachaId, userId]);
+
+    if (ownerCheck.rows.length === 0) {
+      throw new Error('Gacha not found or access denied');
+    }
+
+    const result = await database.query(`
+      SELECT id, name, description, stock, image_url, is_public, created_at, updated_at
+      FROM gacha_items
+      WHERE gacha_id = $1
+      ORDER BY created_at DESC, name
+    `, [gachaId]);
+
+    return result.rows;
+  }
+
+  // ガチャアイテム作成
+  static async createItemForUser(gachaId, itemData, userId) {
+    // ガチャの所有者チェック
+    const ownerCheck = await database.query(`
+      SELECT id FROM gachas WHERE id = $1 AND user_id = $2
+    `, [gachaId, userId]);
+
+    if (ownerCheck.rows.length === 0) {
+      throw new Error('Gacha not found or access denied');
+    }
+
+    const { name, description, stock = 0, imageUrl = '', isPublic = true } = itemData;
+
+    const result = await database.query(`
+      INSERT INTO gacha_items (gacha_id, name, description, stock, image_url, is_public)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id, name, description, stock, image_url, is_public, created_at, updated_at
+    `, [gachaId, name, description, stock, imageUrl, isPublic]);
+
+    return result.rows[0];
+  }
+
+  // ガチャアイテム更新
+  static async updateItemForUser(gachaId, itemId, itemData, userId) {
+    // ガチャの所有者チェック
+    const ownerCheck = await database.query(`
+      SELECT id FROM gachas WHERE id = $1 AND user_id = $2
+    `, [gachaId, userId]);
+
+    if (ownerCheck.rows.length === 0) {
+      throw new Error('Gacha not found or access denied');
+    }
+
+    const { name, description, stock, imageUrl, isPublic } = itemData;
+
+    const result = await database.query(`
+      UPDATE gacha_items 
+      SET name = $1, description = $2, stock = $3, 
+          image_url = $4, is_public = $5, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $6 AND gacha_id = $7
+      RETURNING id, name, description, stock, image_url, is_public, created_at, updated_at
+    `, [name, description, stock, imageUrl, isPublic, itemId, gachaId]);
+
+    if (result.rows.length === 0) {
+      throw new Error('Item not found');
+    }
+
+    return result.rows[0];
+  }
+
+  // ガチャアイテム削除
+  static async deleteItemForUser(gachaId, itemId, userId) {
+    // ガチャの所有者チェック
+    const ownerCheck = await database.query(`
+      SELECT id FROM gachas WHERE id = $1 AND user_id = $2
+    `, [gachaId, userId]);
+
+    if (ownerCheck.rows.length === 0) {
+      throw new Error('Gacha not found or access denied');
+    }
+
+    const result = await database.query(`
+      DELETE FROM gacha_items 
+      WHERE id = $1 AND gacha_id = $2
+      RETURNING id
+    `, [itemId, gachaId]);
 
     return result.rows.length > 0;
   }
