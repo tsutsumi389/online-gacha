@@ -305,8 +305,9 @@ class Gacha {
     try {
       const query = `
         UPDATE gachas 
-        SET name = $1, description = $2, price = $3, is_public = $4, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $5 AND user_id = $6
+        SET name = $1, description = $2, price = $3, is_public = $4, 
+            display_from = $5, display_to = $6, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $7 AND user_id = $8
         RETURNING *
       `;
 
@@ -315,6 +316,8 @@ class Gacha {
         gachaData.description,
         gachaData.price,
         gachaData.is_public,
+        gachaData.display_from || null,
+        gachaData.display_to || null,
         id,
         userId
       ];

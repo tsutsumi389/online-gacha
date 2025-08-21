@@ -168,7 +168,21 @@ export default async function userGachaRoutes(fastify, options) {
       }
 
       // ガチャ更新
-      const updatedGacha = await Gacha.updateByIdForUser(gachaId, request.user.userId, value);
+      const updatedGachaData = await Gacha.update(gachaId, {
+        name: value.name,
+        description: value.description,
+        price: value.price,
+        is_public: value.isPublic,
+        display_from: value.displayFrom,
+        display_to: value.displayTo
+      }, request.user.userId);
+
+      if (!updatedGachaData) {
+        return reply.code(404).send({ error: 'Gacha not found or update failed' });
+      }
+
+      // Gachaインスタンスを作成
+      const updatedGacha = new Gacha(updatedGachaData);
 
       return reply.send({
         message: 'Gacha updated successfully',
@@ -223,13 +237,18 @@ export default async function userGachaRoutes(fastify, options) {
         return reply.code(400).send({ error: 'Invalid gacha ID' });
       }
 
-      // ガチャとアイテムの詳細取得
-      const gacha = await Gacha.findByIdForUserWithItems(gachaId, request.user.userId);
-      if (!gacha) {
+      // ガチャの詳細取得
+      const gachaData = await Gacha.findByIdForUser(gachaId, request.user.userId);
+      if (!gachaData) {
         return reply.code(404).send({ error: 'Gacha not found or access denied' });
       }
 
-      return reply.send(gacha.toJSON());
+      // Gachaインスタンスを作成してレスポンス
+      const gacha = new Gacha(gachaData);
+      
+      return reply.send({
+        gacha: gacha.toJSON()
+      });
 
     } catch (error) {
       fastify.log.error(error);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Card,
   CardContent,
@@ -39,7 +40,6 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import 'swiper/css/effect-coverflow';
-import UserGachaDetail from './UserGachaDetail';
 import { motion, AnimatePresence } from 'framer-motion';
 import { gachaAPI, handleApiError } from './utils/api';
 
@@ -136,8 +136,8 @@ const mockGachas = [
 ];
 
 export default function UserGachaList() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
-  const [detailId, setDetailId] = useState(null);
   const [favorites, setFavorites] = useState(new Set());
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('popular');
@@ -216,10 +216,6 @@ export default function UserGachaList() {
     const maxStock = 200; // 仮の最大値
     return (totalStock / maxStock) * 100;
   };
-
-  if (detailId) {
-    return <UserGachaDetail gachaId={detailId} onBack={() => setDetailId(null)} />;
-  }
 
   if (loading) {
     return (
@@ -374,7 +370,7 @@ export default function UserGachaList() {
                       )}
                     </IconButton>
 
-                    <CardActionArea onClick={() => setDetailId(gacha.id)}>
+                    <CardActionArea onClick={() => navigate(`/gacha/${gacha.id}`)}>
                       {/* 画像スライダー */}
                       <Box sx={{ position: 'relative', height: 250 }}>
                         {gacha.images && gacha.images.length > 0 ? (
@@ -529,7 +525,7 @@ export default function UserGachaList() {
                       <Button
                         variant="outlined"
                         size="small"
-                        onClick={() => setDetailId(gacha.id)}
+                        onClick={() => navigate(`/gacha/${gacha.id}`)}
                         sx={{ borderRadius: 2 }}
                       >
                         詳細を見る

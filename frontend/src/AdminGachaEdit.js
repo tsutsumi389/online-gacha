@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, 
   Switch, TextField, IconButton, Alert, CircularProgress, Dialog, DialogTitle, DialogContent, 
@@ -8,29 +9,54 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import { myGachaAPI } from './utils/api';
 
-export default function AdminGachaEdit({ gacha, onBack }) {
+export default function AdminGachaEdit() {
+  const { id: gachaId } = useParams();
+  const navigate = useNavigate();
+  const [gacha, setGacha] = useState(null);
+  const [loading, setLoading] = useState(!!gachaId);
   const [form, setForm] = useState({
     name: '',
     description: '',
     price: 100,
     isPublic: true,
     displayFrom: '',
-    displayTo: '',
-    ...gacha
+    displayTo: ''
   });
   const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [error, setError] = useState('');
   const [editItem, setEditItem] = useState(null);
   const [isNewItem, setIsNewItem] = useState(false);
   const [openDeleteItem, setOpenDeleteItem] = useState(false);
   const [deleteItemId, setDeleteItemId] = useState(null);
-  const [createdGachaId, setCreatedGachaId] = useState(null); // 新規作成されたガチャのID
   const [successMessage, setSuccessMessage] = useState(''); // 成功メッセージ
 
-  const isNewGacha = !gacha || !gacha.id;
-  const currentGachaId = createdGachaId || (gacha && gacha.id); // 作成後のIDまたは既存のID
+  const isNewGacha = !gachaId;
+  const currentGachaId = gachaId;
+
+  // 既存ガチャデータを取得
+  const fetchGacha = async () => {
+    if (!gachaId) return;
+    
+    try {
+      setLoading(true);
+      const response = await myGachaAPI.getGacha(gachaId);
+      const gachaData = response.gacha;
+      setGacha(gachaData);
+      setForm({
+        name: gachaData.name || '',
+        description: gachaData.description || '',
+        price: gachaData.price || 100,
+        isPublic: gachaData.isPublic || true,
+        displayFrom: gachaData.displayFrom || '',
+        displayTo: gachaData.displayTo || ''
+      });
+    } catch (err) {
+      setError('ガチャの取得に失敗しました: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // ガチャアイテム一覧を取得
   const fetchItems = async () => {
@@ -46,6 +72,12 @@ export default function AdminGachaEdit({ gacha, onBack }) {
       setItemsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (gachaId) {
+      fetchGacha();
+    }
+  }, [gachaId]);
 
   useEffect(() => {
     if (currentGachaId) {
@@ -88,18 +120,16 @@ export default function AdminGachaEdit({ gacha, onBack }) {
       let result;
       if (isNewGacha) {
         result = await myGachaAPI.createGacha(gachaData);
-        // 新規作成されたガチャのIDを保存
+        // 新規作成されたガチャのIDを保存して編集ページに移動
         if (result.gacha && result.gacha.id) {
-          setCreatedGachaId(result.gacha.id);
           setSuccessMessage('ガチャが正常に作成されました。続けてアイテムを追加できます。');
+          // 編集ページにリダイレクト
+          navigate(`/my-gacha/edit/${result.gacha.id}`, { replace: true });
+          return;
         }
       } else {
-        result = await myGachaAPI.updateGacha(gacha.id, gachaData);
-      }
-
-      // 新規作成の場合は一覧に戻らず、アイテム管理セクションを表示
-      if (!isNewGacha) {
-        onBack(); // 更新の場合のみ一覧に戻る
+        result = await myGachaAPI.updateGacha(currentGachaId, gachaData);
+        navigate('/my-gacha'); // 更新の場合は一覧に戻る
       }
     } catch (err) {
       console.error('Gacha save error:', err); // デバッグ用
@@ -207,10 +237,10 @@ export default function AdminGachaEdit({ gacha, onBack }) {
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto', my: 4 }}>
       <Typography variant="h4" sx={{ mb: 3 }}>
-        {isNewGacha && !createdGachaId ? 'ガチャ新規作成' : 'ガチャ編集'}
+        {isNewGacha ? 'ガチャ新規作成' : 'ガチャ編集'}
       </Typography>
       
-      <Button variant="outlined" sx={{ mb: 3 }} onClick={onBack}>
+      <Button variant="outlined" sx={{ mb: 3 }} onClick={() => navigate('/my-gacha')}>
         一覧に戻る
       </Button>
 
@@ -286,7 +316,7 @@ export default function AdminGachaEdit({ gacha, onBack }) {
             disabled={loading}
             sx={{ alignSelf: 'flex-start' }}
           >
-            {loading ? <CircularProgress size={24} /> : (isNewGacha && !createdGachaId ? '作成' : '保存')}
+            {loading ? <CircularProgress size={24} /> : (isNewGacha ? '作成' : '保存')}
           </Button>
         </Box>
       </Paper>

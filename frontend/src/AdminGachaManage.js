@@ -3,16 +3,13 @@ import { Box, Typography, Button, Table, TableBody, TableCell, TableContainer, T
 import { useNavigate } from 'react-router-dom';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
-import AdminGachaEdit from './AdminGachaEdit';
 import { myGachaAPI } from './utils/api';
 
-export default function AdminGachaManage({ gacha, onBack }) {
+export default function AdminGachaManage() {
   const navigate = useNavigate();
   const [gachas, setGachas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [showEdit, setShowEdit] = useState(!!gacha);
-  const [editGacha, setEditGacha] = useState(gacha || null);
   const [openDelete, setOpenDelete] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [page, setPage] = useState(1);
@@ -34,10 +31,8 @@ export default function AdminGachaManage({ gacha, onBack }) {
   };
 
   useEffect(() => {
-    if (!showEdit) {
-      fetchGachas();
-    }
-  }, [showEdit, page]);
+    fetchGachas();
+  }, [page]);
 
   // 公開状態切り替え
   const handleTogglePublic = async (id) => {
@@ -50,14 +45,7 @@ export default function AdminGachaManage({ gacha, onBack }) {
   };
 
   const handleEdit = (gacha) => {
-    setEditGacha(gacha);
-    setShowEdit(true);
-  };
-
-  const handleEditSave = async () => {
-    setShowEdit(false);
-    setEditGacha(null);
-    await fetchGachas(); // 一覧を再取得
+    navigate(`/my-gacha/edit/${gacha.id}`);
   };
 
   const handleDelete = (id) => {
@@ -78,20 +66,8 @@ export default function AdminGachaManage({ gacha, onBack }) {
   };
 
   const handleNew = () => {
-    setEditGacha({ id: null, name: '', description: '', price: 100, isPublic: true, displayFrom: '', displayTo: '' });
-    setShowEdit(true);
+    navigate('/my-gacha/new');
   };
-
-  // 編集画面から戻る処理
-  const handleBackFromEdit = () => {
-    setShowEdit(false);
-    setEditGacha(null);
-    fetchGachas(); // 一覧を再取得
-  };
-
-  if (showEdit) {
-    return <AdminGachaEdit gacha={editGacha} onBack={handleBackFromEdit} />;
-  }
 
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto', my: 4 }}>

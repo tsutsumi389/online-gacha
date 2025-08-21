@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, Button, Box, CircularProgress } from '@mui/material';
 import LoginForm from './LoginForm';
 import RegisterForm from './RegisterForm';
 import AdminGachaManage from './AdminGachaManage';
+import AdminGachaEdit from './AdminGachaEdit';
 import UserGachaList from './UserGachaList';
+import UserGachaDetail from './UserGachaDetail';
 import { authAPI } from './utils/api';
 
 function App() {
@@ -69,6 +71,21 @@ function App() {
     navigate('/login');
   };
 
+  // ルートコンポーネントのラッパー
+  const GachaDetailWrapper = () => {
+    const { id } = useParams();
+    return <UserGachaDetail gachaId={id} onBack={() => navigate('/gacha-list')} />;
+  };
+
+  const GachaEditWrapper = () => {
+    const { id } = useParams();
+    return <AdminGachaEdit />;
+  };
+
+  const NewGachaWrapper = () => {
+    return <AdminGachaEdit />;
+  };
+
   // ログインが必要なページの保護
   const PrivateRoute = ({ children }) => {
     return isAuthenticated ? children : <Navigate to="/login" />;
@@ -107,11 +124,11 @@ function App() {
               <Button color="inherit" onClick={() => navigate('/')}>
                 ホーム
               </Button>
-              <Button color="inherit" onClick={() => navigate('/gacha-list')}>
+              <Button color="inherit" onClick={() => navigate('/gacha')}>
                 ガチャ一覧
               </Button>
               <Button color="inherit" onClick={() => navigate('/my-gacha')}>
-                マイガチャ
+                マイガチャ管理
               </Button>
               <Button color="inherit" onClick={handleLogout}>
                 ログアウト ({user?.name})
@@ -119,7 +136,7 @@ function App() {
             </Box>
           ) : (
             <Box sx={{ display: 'flex', gap: 2 }}>
-              <Button color="inherit" onClick={() => navigate('/gacha-list')}>
+              <Button color="inherit" onClick={() => navigate('/gacha')}>
                 ガチャ一覧
               </Button>
               <Button color="inherit" onClick={() => navigate('/login')}>
@@ -170,12 +187,23 @@ function App() {
         } />
 
         {/* 公開ページ（誰でもアクセス可能） */}
-        <Route path="/gacha-list" element={<UserGachaList />} />
+        <Route path="/gacha" element={<UserGachaList />} />
+        <Route path="/gacha/:id" element={<GachaDetailWrapper />} />
 
         {/* 保護されたページ（認証が必要） */}
         <Route path="/my-gacha" element={
           <PrivateRoute>
             <AdminGachaManage />
+          </PrivateRoute>
+        } />
+        <Route path="/my-gacha/new" element={
+          <PrivateRoute>
+            <NewGachaWrapper />
+          </PrivateRoute>
+        } />
+        <Route path="/my-gacha/edit/:id" element={
+          <PrivateRoute>
+            <GachaEditWrapper />
           </PrivateRoute>
         } />
 
