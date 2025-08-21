@@ -88,14 +88,40 @@ export const authAPI = {
 
 // ガチャ関連のAPI
 export const gachaAPI = {
-  // ガチャ一覧取得
-  getGachas: async () => {
-    return apiRequest('/api/gachas');
+  // ガチャ一覧取得（検索・フィルタリング・ソート・ページネーション対応）
+  getGachas: async (params = {}) => {
+    const queryParams = new URLSearchParams();
+    if (params.search) queryParams.append('search', params.search);
+    if (params.category) queryParams.append('category', params.category);
+    if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+    if (params.page) queryParams.append('page', params.page);
+    if (params.limit) queryParams.append('limit', params.limit);
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/api/gachas${queryString ? `?${queryString}` : ''}`;
+    
+    return apiRequest(endpoint);
   },
 
   // ガチャ詳細取得
   getGacha: async (id) => {
     return apiRequest(`/api/gachas/${id}`);
+  },
+
+  // カテゴリ一覧取得
+  getCategories: async () => {
+    return apiRequest('/api/gachas/categories');
+  },
+
+  // 人気ガチャランキング取得
+  getPopularGachas: async (limit = 5) => {
+    return apiRequest(`/api/gachas/popular?limit=${limit}`);
+  },
+
+  // ガチャ統計情報取得
+  getStats: async () => {
+    return apiRequest('/api/gachas/stats');
   },
 
   // ガチャ実行

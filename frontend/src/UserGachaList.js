@@ -18,7 +18,9 @@ import {
   CardMedia,
   CardActionArea,
   Rating,
-  Tooltip
+  Tooltip,
+  CircularProgress,
+  Alert
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -39,6 +41,7 @@ import 'swiper/css/pagination';
 import 'swiper/css/effect-coverflow';
 import UserGachaDetail from './UserGachaDetail';
 import { motion, AnimatePresence } from 'framer-motion';
+import { gachaAPI, handleApiError } from './utils/api';
 
 // 実際のシードデータに基づくモックデータ
 const mockGachas = [
@@ -138,12 +141,33 @@ export default function UserGachaList() {
   const [favorites, setFavorites] = useState(new Set());
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('popular');
+  const [gachas, setGachas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const categories = ['all', 'アイテム', 'ジュエル', 'コレクション', '日用品'];
 
-  const filtered = mockGachas.filter((gacha) => {
-    const matchesSearch = gacha.name.toLowerCase().includes(search.toLowerCase()) ||
-                         gacha.creator.toLowerCase().includes(search.toLowerCase());
+  // ガチャ一覧を取得
+  const fetchGachas = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const response = await gachaAPI.getGachas();
+      setGachas(response.gachas || []);
+    } catch (err) {
+      setError(handleApiError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGachas();
+  }, []);
+
+  const filtered = gachas.filter((gacha) => {
+    const matchesSearch = gacha.name?.toLowerCase().includes(search.toLowerCase()) ||
+                         gacha.creator?.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || gacha.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -151,15 +175,15 @@ export default function UserGachaList() {
   const sorted = [...filtered].sort((a, b) => {
     switch (sortBy) {
       case 'popular':
-        return b.totalPlays - a.totalPlays;
+        return (b.totalPlays || 0) - (a.totalPlays || 0);
       case 'rating':
-        return b.rating - a.rating;
+        return (b.rating || 0) - (a.rating || 0);
       case 'price-low':
-        return a.price - b.price;
+        return (a.price || 0) - (b.price || 0);
       case 'price-high':
-        return b.price - a.price;
+        return (b.price || 0) - (a.price || 0);
       case 'newest':
-        return new Date(b.endDate) - new Date(a.endDate);
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
       default:
         return 0;
     }
@@ -187,18 +211,37 @@ export default function UserGachaList() {
   };
 
   const getStockProgress = (items) => {
-    const totalStock = items.reduce((sum, item) => sum + item.stock, 0);
+    if (!items || items.length === 0) return 0;
+    const totalStock = items.reduce((sum, item) => sum + (item.stock || 0), 0);
     const maxStock = 200; // 仮の最大値
     return (totalStock / maxStock) * 100;
   };
 
   if (detailId) {
-    const gacha = mockGachas.find((g) => g.id === detailId);
+    const gacha = gachas.find((g) => g.id === detailId);
     return <UserGachaDetail gacha={gacha} onBack={() => setDetailId(null)} />;
+  }
+
+  if (loading) {
+    return (
+      <Container maxWidth="xl" sx={{ py: 4, textAlign: 'center' }}>
+        <CircularProgress size={60} />
+        <Typography variant="h6" sx={{ mt: 2 }}>
+          ガチャ一覧を読み込み中...
+        </Typography>
+      </Container>
+    );
   }
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
+      {/* エラー表示 */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 4 }}>
+          {error}
+        </Alert>
+      )}
+
       {/* ヘッダー */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -274,9 +317,11 @@ export default function UserGachaList() {
       <AnimatePresence>
         <Grid container spacing={3}>
           {sorted.map((gacha, index) => {
-            const totalStock = gacha.items.reduce((sum, item) => sum + item.stock, 0);
+            const totalStock = gacha.items ? gacha.items.reduce((sum, item) => sum + (item.stock || 0), 0) : 0;
             const stockProgress = getStockProgress(gacha.items);
-            const daysLeft = Math.ceil((new Date(gacha.endDate) - new Date()) / (1000 * 60 * 60 * 24));
+            const daysLeft = gacha.display_to ? 
+              Math.ceil((new Date(gacha.display_to) - new Date()) / (1000 * 60 * 60 * 24)) : 
+              30; // デフォルト値
 
             return (
               <Grid item xs={12} sm={6} lg={4} key={gacha.id}>
@@ -333,34 +378,51 @@ export default function UserGachaList() {
                     <CardActionArea onClick={() => setDetailId(gacha.id)}>
                       {/* 画像スライダー */}
                       <Box sx={{ position: 'relative', height: 250 }}>
-                        <Swiper
-                          modules={[Navigation, Pagination, A11y, Autoplay, EffectCoverflow]}
-                          navigation
-                          pagination={{ clickable: true }}
-                          autoplay={{ delay: 4000, disableOnInteraction: false }}
-                          effect="coverflow"
-                          coverflowEffect={{
-                            rotate: 30,
-                            stretch: 10,
-                            depth: 60,
-                            modifier: 1,
-                          }}
-                          spaceBetween={8}
-                          slidesPerView={1}
-                          style={{ height: '100%' }}
-                        >
-                          {gacha.images.map((img, idx) => (
-                            <SwiperSlide key={idx}>
-                              <CardMedia
-                                component="img"
-                                height="250"
-                                image={img}
-                                alt={gacha.name + '-' + (idx + 1)}
-                                sx={{ objectFit: 'cover' }}
-                              />
-                            </SwiperSlide>
-                          ))}
-                        </Swiper>
+                        {gacha.images && gacha.images.length > 0 ? (
+                          <Swiper
+                            modules={[Navigation, Pagination, A11y, Autoplay, EffectCoverflow]}
+                            navigation
+                            pagination={{ clickable: true }}
+                            autoplay={{ delay: 4000, disableOnInteraction: false }}
+                            effect="coverflow"
+                            coverflowEffect={{
+                              rotate: 30,
+                              stretch: 10,
+                              depth: 60,
+                              modifier: 1,
+                            }}
+                            spaceBetween={8}
+                            slidesPerView={1}
+                            style={{ height: '100%' }}
+                          >
+                            {gacha.images.map((img, idx) => (
+                              <SwiperSlide key={idx}>
+                                <CardMedia
+                                  component="img"
+                                  height="250"
+                                  image={img}
+                                  alt={gacha.name + '-' + (idx + 1)}
+                                  sx={{ objectFit: 'cover' }}
+                                />
+                              </SwiperSlide>
+                            ))}
+                          </Swiper>
+                        ) : (
+                          <CardMedia
+                            component="div"
+                            height="250"
+                            sx={{ 
+                              backgroundColor: 'grey.200',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            <Typography variant="body2" color="text.secondary">
+                              画像なし
+                            </Typography>
+                          </CardMedia>
+                        )}
                       </Box>
 
                       <CardContent sx={{ flexGrow: 1, p: 3 }}>
@@ -370,24 +432,26 @@ export default function UserGachaList() {
                             {gacha.name}
                           </Typography>
                           <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
-                            <Rating value={gacha.rating} precision={0.1} size="small" readOnly />
+                            <Rating value={gacha.rating || 0} precision={0.1} size="small" readOnly />
                             <Typography variant="caption" sx={{ ml: 0.5 }}>
-                              ({gacha.totalPlays})
+                              ({gacha.totalPlays || 0})
                             </Typography>
                           </Box>
                         </Box>
 
                         {/* 説明 */}
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                          {gacha.description}
+                          {gacha.description || 'ガチャの説明がありません'}
                         </Typography>
 
                         {/* 作成者情報 */}
                         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                          <Avatar src={gacha.creatorAvatar} sx={{ width: 32, height: 32, mr: 1 }} />
+                          <Avatar src={gacha.creatorAvatar} sx={{ width: 32, height: 32, mr: 1 }}>
+                            {gacha.creator ? gacha.creator.charAt(0) : 'U'}
+                          </Avatar>
                           <Box>
                             <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                              {gacha.creator}
+                              {gacha.creator || '不明'}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
                               クリエイター
@@ -400,7 +464,7 @@ export default function UserGachaList() {
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
                             <CoinIcon color="primary" sx={{ mr: 0.5 }} />
                             <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>
-                              {gacha.price}pt
+                              {gacha.price || 0}pt
                             </Typography>
                           </Box>
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -412,26 +476,28 @@ export default function UserGachaList() {
                         </Box>
 
                         {/* レアリティ表示 */}
-                        <Box sx={{ mb: 2 }}>
-                          <Typography variant="caption" gutterBottom>
-                            レアリティ構成:
-                          </Typography>
-                          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                            {gacha.items.map((item) => (
-                              <Chip
-                                key={item.id}
-                                label={item.rarity}
-                                size="small"
-                                sx={{
-                                  bgcolor: getRarityColor(item.rarity),
-                                  color: 'white',
-                                  fontWeight: 'bold',
-                                  fontSize: '0.7rem'
-                                }}
-                              />
-                            ))}
+                        {gacha.items && gacha.items.length > 0 && (
+                          <Box sx={{ mb: 2 }}>
+                            <Typography variant="caption" gutterBottom>
+                              レアリティ構成:
+                            </Typography>
+                            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                              {gacha.items.map((item) => (
+                                <Chip
+                                  key={item.id}
+                                  label={item.rarity || 'N'}
+                                  size="small"
+                                  sx={{
+                                    bgcolor: getRarityColor(item.rarity),
+                                    color: 'white',
+                                    fontWeight: 'bold',
+                                    fontSize: '0.7rem'
+                                  }}
+                                />
+                              ))}
+                            </Box>
                           </Box>
-                        </Box>
+                        )}
 
                         {/* 在庫プログレス */}
                         <Box sx={{ mb: 2 }}>
@@ -503,7 +569,7 @@ export default function UserGachaList() {
           right: 32,
           background: 'linear-gradient(45deg, #FE6B8B 30%, #FF8E53 90%)',
         }}
-        onClick={() => window.location.reload()}
+        onClick={fetchGachas}
       >
         <RefreshIcon />
       </Fab>
