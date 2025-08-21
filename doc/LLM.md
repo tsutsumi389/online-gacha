@@ -175,7 +175,7 @@ GET /             - 公開ガチャ一覧
 GET /:id          - ガチャ詳細
 POST /:id/draw    - ガチャ実行
 
-# マイガチャ管理 (要認証)
+# マイガチャ管理 (要認証) - 旧APIパス: /api/admin → /api/my に変更済み
 GET /my           - 自分のガチャ一覧
 POST /my          - ガチャ作成
 GET /my/:id       - 自分のガチャ詳細
@@ -184,17 +184,30 @@ DELETE /my/:id    - ガチャ削除
 PUT /my/:id/toggle-public - 公開状態切り替え
 ```
 
-## フロントエンドコンポーネント
+## フロントエンドコンポーネント・URL構造
 
-### 主要コンポーネント
+### 主要コンポーネント ✅ URL分離実装完了
 ```
 App.js                - メインアプリケーション、ルーティング、認証状態管理
+                      - URL分離実装: React Router によるパラメータベースルーティング
 LoginForm.js          - ログインフォーム（API統合済み）
 RegisterForm.js       - 新規登録フォーム（API統合済み）
-UserGachaList.js      - 公開ガチャ一覧
-UserGachaDetail.js    - ガチャ詳細・実行画面
-MyGachaList.js        - マイガチャ一覧（完全実装済み）
+UserGachaList.js      - 公開ガチャ一覧 (URL: /gacha)
+UserGachaDetail.js    - ガチャ詳細・実行画面 (URL: /gacha/:id)
+MyGachaList.js        - マイガチャ一覧 (URL: /my-gacha)（完全実装済み）
+AdminGachaEdit.js     - ガチャ編集・新規作成 (URL: /my-gacha/new, /my-gacha/edit/:id)
 GachaPerformance.js   - ガチャ実行演出
+```
+
+### URL構造 ✅ 分離実装完了
+```
+/gacha              - ガチャ一覧画面
+/gacha/:id          - ガチャ詳細画面（URL パラメータからガチャID取得）
+/my-gacha           - マイガチャ管理画面
+/my-gacha/new       - ガチャ新規作成画面
+/my-gacha/edit/:id  - ガチャ編集画面（URL パラメータからガチャID取得）
+/login              - ログイン画面
+/register           - 新規登録画面
 ```
 
 ### 認証状態管理
@@ -420,6 +433,29 @@ curl -b cookies.txt -c cookies.txt \
 3. **HTTPS**: 本番環境では HTTPS 必須
 
 ## 変更履歴
+
+## 変更履歴
+
+### 2025年8月21日 - URL構造分離実装
+- **フロントエンド改修**:
+  - URL分離実装: ガチャ一覧とガチャ詳細のURL分離 (`/gacha` → `/gacha/:id`)
+  - URL分離実装: マイガチャ管理とガチャ編集のURL分離 (`/my-gacha` → `/my-gacha/edit/:id`)
+  - 新規ガチャ作成の独立URL: `/my-gacha/new`
+
+- **ルーティング改善**:
+  - `App.js`: React Router による URL パラメータベースのナビゲーション実装
+  - 各コンポーネントの props 依存からURL パラメータ依存への移行
+  - ブラウザの戻る/進むボタン対応の改善
+
+- **コンポーネント修正**:
+  - `AdminGachaEdit.js`: URL パラメータ (`useParams`) からガチャID取得に変更
+  - `UserGachaDetail.js`: URL パラメータによるガチャ詳細取得対応
+  - ラッパーコンポーネント実装: `GachaDetailWrapper`, `GachaEditWrapper`, `NewGachaWrapper`
+
+- **API修正・バグ修正**:
+  - `web/src/routes/admin.js`: ガチャ取得・更新エンドポイントの修正
+  - `web/src/models/Gacha.js`: `update` メソッドの完全実装（全フィールド対応）
+  - バックエンドAPI endpoints の安定化
 
 ### 2025年8月19日 - ロールベースアクセス制御の完全撤廃と認証永続化
 - **アーキテクチャ変更**:
