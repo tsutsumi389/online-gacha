@@ -218,8 +218,7 @@ export default function UserGachaList() {
   };
 
   if (detailId) {
-    const gacha = gachas.find((g) => g.id === detailId);
-    return <UserGachaDetail gacha={gacha} onBack={() => setDetailId(null)} />;
+    return <UserGachaDetail gachaId={detailId} onBack={() => setDetailId(null)} />;
   }
 
   if (loading) {

@@ -192,16 +192,23 @@ function ModernStarAnimation({ color = 'gray', onEnd, stopInCenter = false, chan
 export default function GachaPerformance({ 
   type: initialType = 'normal', 
   onBack, 
-  result = { 
-    name: 'SSRドラゴン', 
-    image: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=400&fit=crop', 
-    rarity: 'SSR' 
-  } 
+  result = null
 }) {
   const [type, setType] = useState(initialType);
   const [step, setStep] = useState(0); // 0: start, 1: done
   const [showResult, setShowResult] = useState(false);
   const theme = useTheme();
+
+  // デフォルトの結果データ（resultがnullの場合に使用）
+  const defaultResult = { 
+    item: {
+      name: 'サンプルアイテム', 
+      image_url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=400&fit=crop', 
+      description: 'ガチャで獲得したアイテムです'
+    }
+  };
+
+  const currentResult = result || defaultResult;
 
   useEffect(() => {
     setType(initialType);
@@ -461,16 +468,16 @@ export default function GachaPerformance({
                         >
                           <Box
                             component="img"
-                            src={result.image}
-                            alt={result.name}
+                            src={currentResult.item?.image_url || 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=400&fit=crop'}
+                            alt={currentResult.item?.name || 'アイテム'}
                             sx={{
                               width: 150,
                               height: 150,
                               borderRadius: 3,
                               objectFit: 'cover',
-                              border: `3px solid ${getRarityColor(result.rarity)}`,
-                              boxShadow: `0 8px 24px ${alpha(getRarityColor(result.rarity), 0.4)}`,
-                              background: `linear-gradient(135deg, ${alpha(getRarityColor(result.rarity), 0.1)} 0%, transparent 100%)`
+                              border: `3px solid ${theme.palette.primary.main}`,
+                              boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.4)}`,
+                              background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, transparent 100%)`
                             }}
                           />
                         </motion.div>
@@ -485,19 +492,33 @@ export default function GachaPerformance({
                           color: theme.palette.text.primary
                         }}
                       >
-                        {result.name}
+                        {currentResult.item?.name || 'アイテム獲得！'}
                       </Typography>
 
+                      {currentResult.item?.description && (
+                        <Typography
+                          variant="body1"
+                          sx={{
+                            textAlign: 'center',
+                            color: theme.palette.text.secondary,
+                            mb: 2,
+                            fontWeight: 500
+                          }}
+                        >
+                          {currentResult.item.description}
+                        </Typography>
+                      )}
+
                       <Chip
-                        label={result.rarity}
+                        label="獲得完了！"
                         sx={{
-                          background: `linear-gradient(45deg, ${getRarityColor(result.rarity)}, ${alpha(getRarityColor(result.rarity), 0.8)})`,
+                          background: `linear-gradient(45deg, ${theme.palette.success.main}, ${alpha(theme.palette.success.main, 0.8)})`,
                           color: 'white',
                           fontWeight: 700,
                           fontSize: '1rem',
                           px: 2,
                           py: 1,
-                          boxShadow: `0 4px 12px ${alpha(getRarityColor(result.rarity), 0.4)}`
+                          boxShadow: `0 4px 12px ${alpha(theme.palette.success.main, 0.4)}`
                         }}
                       />
                     </Box>
