@@ -37,7 +37,28 @@ export default async function userGachaRoutes(fastify, options) {
       });
 
       return reply.send({
-        gachas: result.gachas.map(gacha => gacha.toJSON()),
+        gachas: result.gachas.map(gacha => {
+          // 生のデータベースレコードをGachaインスタンスに変換
+          if (typeof gacha.toJSON === 'function') {
+            return gacha.toJSON();
+          } else {
+            // 生のデータベースレコードの場合は手動で変換
+            return {
+              id: gacha.id,
+              name: gacha.name,
+              description: gacha.description,
+              price: gacha.price,
+              userId: gacha.user_id,
+              isPublic: gacha.is_public,
+              displayFrom: gacha.display_from,
+              displayTo: gacha.display_to,
+              createdAt: gacha.created_at,
+              updatedAt: gacha.updated_at,
+              itemCount: gacha.item_count,
+              playCount: gacha.play_count
+            };
+          }
+        }),
         pagination: {
           currentPage: pageNum,
           totalPages: Math.ceil(result.totalCount / limitNum),
