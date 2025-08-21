@@ -39,15 +39,73 @@
 - **引くボタン**: ガチャ実行画面へ遷移
 
 ## 5. API設計
-- **GET /api/gachas** ... 公開ガチャ一覧取得（検索・絞り込み対応）
+- **GET /api/gachas** ... 公開ガチャ一覧取得（検索・絞り込み対応）**【✅ 実装完了】**
   - クエリパラメータ：
-    - search: 検索キーワード（ガチャ名、作成者名）
-    - category: カテゴリフィルタ
-    - sortBy: ソート項目（name, price, created_at）
-    - sortOrder: ソート順（asc, desc）
-    - page, limit: ページネーション
+    - search: 検索キーワード（ガチャ名、説明）**【✅ 実装完了】**
+    - sortBy: ソート項目（name, price, created_at, popularity, rating）**【✅ 実装完了】**
+    - sortOrder: ソート順（asc, desc）**【✅ 実装完了】**
+    - page, limit: ページネーション**【✅ 実装完了】**
+  - レスポンス形式：
+    ```json
+    {
+      "gachas": [
+        {
+          "id": 1,
+          "name": "ガチャ名",
+          "description": "説明",
+          "price": 300,
+          "is_public": true,
+          "created_at": "2025-08-21T12:00:00.000Z",
+          "updated_at": "2025-08-21T12:00:00.000Z",
+          "creator_name": "作成者名",
+          "item_count": "3",
+          "play_count": "0"
+        }
+      ],
+      "pagination": {
+        "currentPage": 1,
+        "totalPages": 1,
+        "totalItems": 1,
+        "itemsPerPage": 12,
+        "hasNext": false,
+        "hasPrev": false
+      }
+    }
+    ```
 
-- **GET /api/gachas/:id** ... ガチャ詳細取得（アイテム情報含む）
+- **GET /api/gachas/categories** ... カテゴリ一覧取得**【✅ 実装完了】**
+  - 現在は空配列を返す（将来拡張予定）
+
+- **GET /api/gachas/popular** ... 人気ガチャ一覧取得**【✅ 実装完了】**
+  - プレイ回数順でソートされたガチャ一覧を返す
+
+- **GET /api/gachas/stats** ... ガチャ統計情報取得**【✅ 実装完了】**
+  - レスポンス形式：
+    ```json
+    {
+      "totalGachas": 6,
+      "totalPlays": 0,
+      "uniquePlayers": 0
+    }
+    ```
+
+- **GET /api/gachas/:id** ... ガチャ詳細取得（アイテム情報含む）**【🚧 未実装】**
+
+## 5.1 検索機能の仕様
+- **対応文字**: 英語・日本語対応
+- **検索対象**: ガチャ名（gachas.name）、説明（gachas.description）
+- **エンコーディング**: URLエンコード必須（日本語検索時）
+- **例**: `?search=%E7%94%B0%E4%B8%AD` （「田中」をURLエンコード）
+- **フロントエンド実装時**: `encodeURIComponent()`を使用
+
+## 5.2 ソート機能の仕様
+- **対応項目**: 
+  - `name`: ガチャ名順
+  - `price`: 価格順
+  - `created_at`: 作成日時順（デフォルト）
+  - `popularity`: 人気順（プレイ回数）
+  - `rating`: 評価順（将来実装）
+- **ソート順**: `asc`（昇順）, `desc`（降順、デフォルト）
 
 ## 6. バリデーション・UX
 - ローディング状態の表示
@@ -57,11 +115,12 @@
 - レスポンシブ対応（スマホ・タブレット・PC）
 - アクセシビリティ配慮（ARIA属性、キーボード操作）
 
-## 7. 権限制御
+## 7. 権限制御**【✅ 実装完了】**
 - 全ユーザーが一覧閲覧可能（認証不要）
 - 「ガチャを引く」ボタンは認証必須
 - 公開されたガチャのみ表示（is_public = true）
-- 公開期間内のガチャのみ表示
+- 公開期間内のガチャのみ表示（display_from ～ display_to）**【🚧 部分実装】**
+- 作成者情報の取得（usersテーブルとJOIN）**【✅ 実装完了】**
 
 ## 8. 技術仕様
 - **フロントエンド**: React 18 + Material-UI v5
