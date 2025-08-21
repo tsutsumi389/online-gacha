@@ -126,3 +126,25 @@ export const updateGachaItemSchema = Joi.object({
   }),
   isPublic: Joi.boolean().optional()
 });
+
+// ガチャ一覧検索パラメータのバリデーションスキーマ
+export const gachaListQuerySchema = Joi.object({
+  search: Joi.string().max(100).optional().allow('').messages({
+    'string.max': '検索キーワードは100文字以下で入力してください'
+  }),
+  sortBy: Joi.string().valid('name', 'price', 'created_at', 'popularity', 'rating').default('created_at').messages({
+    'any.only': 'ソート項目が不正です'
+  }),
+  sortOrder: Joi.string().valid('asc', 'desc').default('desc').messages({
+    'any.only': 'ソート順序が不正です'
+  }),
+  page: Joi.number().integer().min(1).default(1).messages({
+    'number.min': 'ページ番号は1以上で指定してください',
+    'number.integer': 'ページ番号は整数で指定してください'
+  }),
+  limit: Joi.number().integer().min(1).max(50).default(12).messages({
+    'number.min': '取得件数は1以上で指定してください',
+    'number.max': '取得件数は50以下で指定してください',
+    'number.integer': '取得件数は整数で指定してください'
+  })
+});

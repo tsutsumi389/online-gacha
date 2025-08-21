@@ -1,9 +1,10 @@
-# ガチャ管理画面 詳細設計
+# ガチャ管理画面 詳細設計 ✅ バックエンド実装完了
 
 ## 1. 画面概要
 - ガチャの新規作成・編集・削除・アイテム管理を行うための管理画面
 - ガチャごとにアイテムリストや在庫数などを管理
 - すべてのユーザーが自分のガチャを管理可能
+- **実装状況**: バックエンドAPI完全実装済み、フロントエンド実装待ち
 
 ## 2. 画面構成
 
@@ -62,28 +63,100 @@
 - アイテム管理セクションは動的に表示
 - エラー時は詳細なエラーメッセージを表示
 
-## 5. API設計
-- GET /api/my/gachas ... ユーザーのガチャ一覧取得（ページネーション対応）
-- POST /api/my/gachas ... ガチャ新規作成
-- PUT /api/my/gachas/:id ... ガチャ編集
-- DELETE /api/my/gachas/:id ... ガチャ削除
-- PATCH /api/my/gachas/:id/public ... 公開状態切り替え
-- GET /api/my/gachas/:id/items ... アイテム一覧取得
-- POST /api/my/gachas/:id/items ... アイテム追加
-- PUT /api/my/gachas/:gachaId/items/:itemId ... アイテム編集
-- DELETE /api/my/gachas/:gachaId/items/:itemId ... アイテム削除
+## 5. API設計 ✅ 実装完了
+### 5.1 管理用エンドポイント（/api/admin/*）
+- ✅ GET /api/admin/gachas ... ユーザーのガチャ一覧取得（ページネーション対応）
+- ✅ POST /api/admin/gachas ... ガチャ新規作成
+- ✅ PUT /api/admin/gachas/:id ... ガチャ編集
+- ✅ DELETE /api/admin/gachas/:id ... ガチャ削除
+- ✅ PATCH /api/admin/gachas/:id/publish ... 公開状態切り替え
+- ✅ GET /api/admin/gachas/:id/items ... アイテム一覧取得
+- ✅ POST /api/admin/gachas/:id/items ... アイテム追加
+- ✅ PUT /api/admin/gachas/:gachaId/items/:itemId ... アイテム編集
+- ✅ DELETE /api/admin/gachas/:gachaId/items/:itemId ... アイテム削除
 
-## 6. 技術仕様
-- フロントエンド: React 18 + Material-UI + Framer Motion
-- バックエンド: Node.js + Fastify + JWT認証
-- データベース: PostgreSQL
-- バリデーション: Joi（バックエンド）
-- 認証: JWT + HTTPOnly Cookie
-- エラーハンドリング: 統一されたエラーレスポンス形式
+### 5.2 認証・セキュリティ
+- ✅ JWT認証による本人確認
+- ✅ ガチャオーナーシップ検証（本人のガチャのみ管理可能）
+- ✅ SQLインジェクション対策（パラメータ化クエリ）
+- ✅ 入力値検証（Joi）
 
-## 7. 備考
-- レスポンシブデザイン対応（スマホ・PC）
-- 認証必須（ログインユーザーのみアクセス可）
-- ユーザーは自分が作成したガチャのみ管理可能
-- Material-UIコンポーネントを使用したモダンなUI
-- リアルタイムでの状態更新（公開/非公開切り替え等）
+### 5.3 レスポンス形式
+```json
+// ガチャ一覧取得レスポンス
+{
+  "gachas": [
+    {
+      "id": 1,
+      "name": "レアアイテムガチャ",
+      "description": "レアなアイテムが当たるガチャです",
+      "price": 100,
+      "is_public": true,
+      "created_at": "2024-01-01T00:00:00.000Z",
+      "updated_at": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "total": 50,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 5
+  }
+}
+
+// アイテム一覧取得レスポンス
+{
+  "items": [
+    {
+      "id": 1,
+      "name": "ダイヤモンド",
+      "description": "貴重なダイヤモンド",
+      "stock": 100,
+      "image_url": "https://example.com/diamond.png",
+      "is_public": true
+    }
+  ]
+}
+```
+
+## 6. 技術仕様 ✅ バックエンド実装完了
+### 6.1 実装済み技術スタック
+- ✅ バックエンド: Node.js + Fastify + JWT認証
+- ✅ データベース: PostgreSQL（完全スキーマ対応）
+- ✅ バリデーション: Joi（バックエンド）
+- ✅ 認証: JWT + ミドルウェア認証
+- ✅ エラーハンドリング: 統一されたエラーレスポンス形式
+- ✅ セキュリティ: パラメータ化クエリ、オーナーシップ検証
+
+### 6.2 実装待ち技術スタック
+- 🔄 フロントエンド: React 18 + Material-UI + Framer Motion
+- 🔄 Cookie認証: HTTPOnly Cookie（現在はHeaderベース）
+
+### 6.3 データベース実装状況
+- ✅ gachas テーブル: 完全対応（is_public列使用）
+- ✅ gacha_items テーブル: 完全CRUD対応
+- ✅ users テーブル: 認証対応
+- ✅ マイグレーション: 最新スキーマ適用済み
+
+## 7. 実装完了事項・備考
+### 7.1 完了済み機能
+- ✅ 管理用APIエンドポイント全機能
+- ✅ JWT認証システム
+- ✅ ガチャCRUD操作（作成・読取・更新・削除）
+- ✅ アイテムCRUD操作（作成・読取・更新・削除）
+- ✅ 公開状態切り替え機能
+- ✅ オーナーシップ検証（本人のガチャのみアクセス可）
+- ✅ 入力値検証とエラーハンドリング
+- ✅ ページネーション対応
+
+### 7.2 実装待ち機能
+- 🔄 レスポンシブデザイン対応（スマホ・PC）
+- 🔄 Material-UIコンポーネントを使用したモダンなUI
+- 🔄 リアルタイムでの状態更新（公開/非公開切り替え等）
+- 🔄 フロントエンド全画面実装
+
+### 7.3 開発メモ
+- データベーススキーマは統一済み（is_public列使用）
+- 認証ミドルウェアによる自動的な本人確認
+- エラーレスポンスの標準化完了
+- API テスト完了（curl による動作確認済み）
