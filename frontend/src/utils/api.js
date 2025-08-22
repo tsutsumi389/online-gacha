@@ -7,11 +7,14 @@ const apiRequest = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
   
   const defaultOptions = {
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: {},
     credentials: 'include', // Cookieを含める
   };
+
+  // FormDataの場合はContent-Typeを自動設定させる
+  if (!(options.body instanceof FormData)) {
+    defaultOptions.headers['Content-Type'] = 'application/json';
+  }
 
   const config = {
     ...defaultOptions,
@@ -219,6 +222,37 @@ export const myGachaAPI = {
     return apiRequest(`/api/my/gachas/${gachaId}/items/${itemId}`, {
       method: 'DELETE',
     });
+  },
+};
+
+// 画像アップロード関連のAPI
+export const imageAPI = {
+  // 画像アップロード
+  uploadImage: async (imageFile) => {
+    const formData = new FormData();
+    formData.append('image', imageFile);
+    
+    return apiRequest('/api/admin/images/upload', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
+  // 画像一覧取得
+  getImages: async () => {
+    return apiRequest('/api/admin/images');
+  },
+
+  // 画像削除
+  deleteImage: async (objectKey) => {
+    return apiRequest(`/api/admin/images/${encodeURIComponent(objectKey)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // 画像使用状況確認
+  getImageUsage: async (objectKey) => {
+    return apiRequest(`/api/admin/images/usage/${encodeURIComponent(objectKey)}`);
   },
 };
 

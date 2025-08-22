@@ -7,7 +7,10 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import ImageIcon from '@mui/icons-material/Image';
 import { myGachaAPI } from './utils/api';
+import ImageUpload from './components/ImageUpload';
+import ImageManager from './components/ImageManager';
 
 export default function AdminGachaEdit() {
   const { id: gachaId } = useParams();
@@ -30,6 +33,7 @@ export default function AdminGachaEdit() {
   const [openDeleteItem, setOpenDeleteItem] = useState(false);
   const [deleteItemId, setDeleteItemId] = useState(null);
   const [successMessage, setSuccessMessage] = useState(''); // 成功メッセージ
+  const [imageManagerOpen, setImageManagerOpen] = useState(false); // 画像管理ダイアログ
 
   const isNewGacha = !gachaId;
   const currentGachaId = gachaId;
@@ -362,9 +366,36 @@ export default function AdminGachaEdit() {
                         </TableCell>
                         <TableCell>
                           {item.image_url ? (
-                            <img src={item.image_url} alt={item.name} width={40} height={40} style={{ objectFit: 'cover' }} />
+                            <Box
+                              component="img"
+                              src={item.image_url}
+                              alt={item.name}
+                              sx={{
+                                width: 50,
+                                height: 50,
+                                objectFit: 'cover',
+                                borderRadius: 1,
+                                border: '1px solid',
+                                borderColor: 'grey.300'
+                              }}
+                            />
                           ) : (
-                            '画像なし'
+                            <Box
+                              sx={{
+                                width: 50,
+                                height: 50,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: '1px dashed',
+                                borderColor: 'grey.300',
+                                borderRadius: 1,
+                                color: 'text.secondary',
+                                fontSize: '0.8rem'
+                              }}
+                            >
+                              画像なし
+                            </Box>
                           )}
                         </TableCell>
                         <TableCell align="right">
@@ -413,12 +444,27 @@ export default function AdminGachaEdit() {
                   fullWidth 
                   inputProps={{ min: 0 }}
                 />
-                <TextField 
-                  label="画像URL" 
-                  value={editItem.imageUrl} 
-                  onChange={e => setEditItem({ ...editItem, imageUrl: e.target.value })} 
-                  fullWidth 
-                />
+                
+                {/* 画像アップロード */}
+                <Box>
+                  <Typography variant="subtitle1" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <ImageIcon />
+                    アイテム画像
+                  </Typography>
+                  <ImageUpload
+                    value={editItem.imageUrl}
+                    onChange={(url) => setEditItem({ ...editItem, imageUrl: url })}
+                  />
+                  <Box sx={{ mt: 1 }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => setImageManagerOpen(true)}
+                    >
+                      アップロード済み画像から選択
+                    </Button>
+                  </Box>
+                </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <Typography>公開状態</Typography>
                   <Switch 
@@ -454,6 +500,13 @@ export default function AdminGachaEdit() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* 画像管理ダイアログ */}
+      <ImageManager
+        open={imageManagerOpen}
+        onClose={() => setImageManagerOpen(false)}
+        onSelect={(url) => setEditItem({ ...editItem, imageUrl: url })}
+      />
     </Box>
   );
 }

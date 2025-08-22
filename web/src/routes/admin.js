@@ -1,5 +1,6 @@
 // ユーザーガチャ管理ルート（全ユーザー用）
 import Gacha from '../models/Gacha.js';
+import database from '../config/database.js';
 import { createGachaSchema, updateGachaSchema, createGachaItemSchema, updateGachaItemSchema } from '../schemas/validation.js';
 
 export default async function userGachaRoutes(fastify, options) {
@@ -284,7 +285,7 @@ export default async function userGachaRoutes(fastify, options) {
     }
   });
 
-  // ガチャアイテム作成
+  // ガチャアイテム作成（画像付き）
   fastify.post('/gachas/:id/items', {
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
@@ -310,8 +311,27 @@ export default async function userGachaRoutes(fastify, options) {
         return reply.code(404).send({ error: 'Gacha not found or access denied' });
       }
 
-      // アイテム作成
-      const newItem = await Gacha.createItemForUser(gachaId, value, request.user.userId);
+      // 画像URLの検証（MinIOからアップロードされた画像の場合）
+      if (value.imageUrl) {
+        const minioHost = process.env.MINIO_PUBLIC_ENDPOINT || 'localhost';
+        const minioPort = process.env.MINIO_PORT || '9000';
+        const expectedPrefix = `http://${minioHost}:${minioPort}/gacha-images/users/${request.user.userId}/`;
+        
+        if (!value.imageUrl.startsWith(expectedPrefix)) {
+          return reply.code(400).send({ 
+            error: 'Invalid image URL. Please upload image through the image upload API.'
+          });
+        }
+      }
+
+      // アイテム作成（image_urlフィールドを使用）
+      const itemData = {
+        ...value,
+        image_url: value.imageUrl // API側のcamelCaseをDB側のsnake_caseに変換
+      };
+      delete itemData.imageUrl;
+
+      const newItem = await Gacha.createItemForUser(gachaId, itemData, request.user.userId);
 
       return reply.code(201).send({
         message: 'Gacha item created successfully',
@@ -324,7 +344,7 @@ export default async function userGachaRoutes(fastify, options) {
     }
   });
 
-  // ガチャアイテム更新
+  // ガチャアイテム更新（画像付き）
   fastify.put('/gachas/:gachaId/items/:itemId', {
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
@@ -351,6 +371,19 @@ export default async function userGachaRoutes(fastify, options) {
         return reply.code(404).send({ error: 'Gacha not found or access denied' });
       }
 
+      // 画像URLの検証（MinIOからアップロードされた画像の場合）
+      if (value.imageUrl) {
+        const minioHost = process.env.MINIO_PUBLIC_ENDPOINT || 'localhost';
+        const minioPort = process.env.MINIO_PORT || '9000';
+        const expectedPrefix = `http://${minioHost}:${minioPort}/gacha-images/users/${request.user.userId}/`;
+        
+        if (!value.imageUrl.startsWith(expectedPrefix)) {
+          return reply.code(400).send({ 
+            error: 'Invalid image URL. Please upload image through the image upload API.' 
+          });
+        }
+      }
+
       // アイテム更新
       const updatedItem = await Gacha.updateItemForUser(gachaId, itemId, value, request.user.userId);
 
@@ -365,7 +398,7 @@ export default async function userGachaRoutes(fastify, options) {
     }
   });
 
-  // ガチャアイテム削除
+  // ガチャアイテム削除（画像も削除）
   fastify.delete('/gachas/:gachaId/items/:itemId', {
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
@@ -383,8 +416,47 @@ export default async function userGachaRoutes(fastify, options) {
         return reply.code(404).send({ error: 'Gacha not found or access denied' });
       }
 
+      // 削除前にアイテム情報を取得（画像URL取得のため）
+      const itemQuery = 'SELECT image_url FROM gacha_items WHERE id = $1 AND gacha_id = $2';
+      const itemResult = await database.query(itemQuery, [itemId, gachaId]);
+      
+      if (itemResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'Item not found' });
+      }
+
+      const imageUrl = itemResult.rows[0].image_url;
+
       // アイテム削除
       await Gacha.deleteItemForUser(gachaId, itemId, request.user.userId);
+
+      // MinIO画像も削除（存在する場合）
+      if (imageUrl) {
+        try {
+          const minioHost = process.env.MINIO_PUBLIC_ENDPOINT || 'localhost';
+          const minioPort = process.env.MINIO_PORT || '9000';
+          const expectedPrefix = `http://${minioHost}:${minioPort}/gacha-images/users/${request.user.userId}/`;
+          
+          if (imageUrl.startsWith(expectedPrefix)) {
+            // URLからオブジェクトキーを抽出
+            const objectKey = imageUrl.replace(`http://${minioHost}:${minioPort}/gacha-images/`, '');
+            
+            // MinIOから画像削除を試行
+            const deleteResponse = await fetch(`http://localhost:8080/api/admin/images/${encodeURIComponent(objectKey)}`, {
+              method: 'DELETE',
+              headers: {
+                'Authorization': request.headers.authorization
+              }
+            });
+
+            if (!deleteResponse.ok) {
+              fastify.log.warn(`Failed to delete image from MinIO: ${objectKey}`);
+            }
+          }
+        } catch (imageDeleteError) {
+          fastify.log.warn('Failed to delete associated image:', imageDeleteError);
+          // 画像削除失敗してもアイテム削除は成功とする
+        }
+      }
 
       return reply.send({
         message: 'Gacha item deleted successfully',
