@@ -84,6 +84,14 @@ export const authAPI = {
       body: JSON.stringify({ currentPassword, newPassword }),
     });
   },
+
+  // プロフィール統合更新
+  updateProfile: async (profileData) => {
+    return apiRequest('/api/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(profileData),
+    });
+  },
 };
 
 // ガチャ関連のAPI

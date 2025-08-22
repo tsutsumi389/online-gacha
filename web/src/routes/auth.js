@@ -1,6 +1,6 @@
 // 認証関連のルート
 import User from '../models/User.js';
-import { loginSchema, registerSchema, changePasswordSchema } from '../schemas/validation.js';
+import { loginSchema, registerSchema, changePasswordSchema, updateProfileSchema } from '../schemas/validation.js';
 
 export default async function authRoutes(fastify, options) {
   // ユーザー登録
@@ -213,6 +213,123 @@ export default async function authRoutes(fastify, options) {
       }
       
       return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // プロフィール統合更新
+  fastify.put('/profile', { 
+    preHandler: fastify.authenticate 
+  }, async (request, reply) => {
+    try {
+      // バリデーション
+      const { error, value } = updateProfileSchema.validate(request.body);
+      if (error) {
+        return reply.code(400).send({ 
+          error: 'VALIDATION_ERROR', 
+          message: '入力内容にエラーがあります',
+          details: error.details.reduce((acc, detail) => {
+            acc[detail.path[0]] = detail.message;
+            return acc;
+          }, {})
+        });
+      }
+
+      const { name, email, currentPassword, newPassword } = value;
+      
+      // パスワード変更時の追加バリデーション
+      if (newPassword && !currentPassword) {
+        return reply.code(400).send({ 
+          error: 'VALIDATION_ERROR', 
+          message: '入力内容にエラーがあります',
+          details: { currentPassword: 'パスワード変更時は現在のパスワードが必要です' }
+        });
+      }
+      
+      if (currentPassword && !newPassword) {
+        return reply.code(400).send({ 
+          error: 'VALIDATION_ERROR', 
+          message: '入力内容にエラーがあります',
+          details: { newPassword: '新しいパスワードは必須です' }
+        });
+      }
+
+      const user = await User.findById(request.user.userId);
+      
+      if (!user) {
+        return reply.code(404).send({ error: 'User not found' });
+      }
+
+      const changedFields = [];
+      const updates = {};
+
+      // ユーザー名の更新
+      if (name && name !== user.name) {
+        await user.updateName(name);
+        updates.name = name;
+        changedFields.push('name');
+      }
+
+      // メールアドレスの更新
+      if (email && email !== user.email) {
+        await user.updateEmail(email);
+        updates.email = email;
+        changedFields.push('email');
+      }
+
+      // パスワードの更新
+      if (currentPassword && newPassword) {
+        await user.changePassword(currentPassword, newPassword);
+        changedFields.push('password');
+      }
+
+      // 何も変更されていない場合
+      if (changedFields.length === 0) {
+        return reply.code(400).send({
+          error: 'NO_CHANGES',
+          message: '変更する項目がありません'
+        });
+      }
+
+      // 更新されたユーザー情報を取得
+      const updatedUser = await User.findById(request.user.userId);
+
+      return reply.send({
+        message: 'プロフィールが正常に更新されました',
+        user: updatedUser.toJSON(),
+        changedFields
+      });
+
+    } catch (error) {
+      fastify.log.error(error);
+      
+      if (error.message === 'NAME_ALREADY_EXISTS') {
+        return reply.code(409).send({ 
+          error: 'VALIDATION_ERROR',
+          message: '入力内容にエラーがあります',
+          details: { name: 'このユーザー名は既に使用されています' }
+        });
+      }
+      
+      if (error.message === 'EMAIL_ALREADY_EXISTS') {
+        return reply.code(409).send({ 
+          error: 'VALIDATION_ERROR',
+          message: '入力内容にエラーがあります',
+          details: { email: 'このメールアドレスは既に使用されています' }
+        });
+      }
+      
+      if (error.message === 'Current password is incorrect') {
+        return reply.code(401).send({ 
+          error: 'VALIDATION_ERROR',
+          message: '入力内容にエラーがあります',
+          details: { currentPassword: '現在のパスワードが正しくありません' }
+        });
+      }
+      
+      return reply.code(500).send({ 
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'サーバーエラーが発生しました' 
+      });
     }
   });
 }

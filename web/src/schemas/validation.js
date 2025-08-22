@@ -148,3 +148,24 @@ export const gachaListQuerySchema = Joi.object({
     'number.integer': '取得件数は整数で指定してください'
   })
 });
+
+// プロフィール更新スキーマ
+export const updateProfileSchema = Joi.object({
+  name: Joi.string().min(2).max(64).optional().messages({
+    'string.min': 'ユーザー名は2文字以上で入力してください',
+    'string.max': 'ユーザー名は64文字以下で入力してください'
+  }),
+  email: Joi.string().email().optional().messages({
+    'string.email': '正しいメールアドレスを入力してください'
+  }),
+  currentPassword: Joi.string().optional().messages({
+    'any.required': 'パスワード変更時は現在のパスワードが必要です'
+  }),
+  newPassword: Joi.string().min(8).pattern(/^(?=.*[a-zA-Z])(?=.*[0-9])/).optional().messages({
+    'string.min': 'パスワードは8文字以上で入力してください',
+    'string.pattern.base': 'パスワードは英数字を含む必要があります',
+    'any.required': '新しいパスワードは必須です'
+  })
+}).min(1).messages({
+  'object.min': '変更する項目を少なくとも一つ入力してください'
+});

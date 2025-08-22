@@ -103,6 +103,52 @@ class User {
     return true;
   }
 
+  // ユーザー名更新メソッド
+  async updateName(newName) {
+    // 同じ名前の場合は更新不要
+    if (newName === this.name) {
+      return;
+    }
+
+    // 重複チェック
+    const existingUser = await User.findByName(newName);
+    if (existingUser && existingUser.id !== this.id) {
+      throw new Error('NAME_ALREADY_EXISTS');
+    }
+
+    // ユーザー名の更新
+    await database.query(
+      'UPDATE users SET name = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [newName, this.id]
+    );
+
+    this.name = newName;
+    this.updatedAt = new Date();
+  }
+
+  // メールアドレス更新メソッド
+  async updateEmail(newEmail) {
+    // 同じメールアドレスの場合は更新不要
+    if (newEmail === this.email) {
+      return;
+    }
+
+    // 重複チェック
+    const existingUser = await User.findByEmail(newEmail);
+    if (existingUser && existingUser.id !== this.id) {
+      throw new Error('EMAIL_ALREADY_EXISTS');
+    }
+
+    // メールアドレスの更新
+    await database.query(
+      'UPDATE users SET email = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [newEmail, this.id]
+    );
+
+    this.email = newEmail;
+    this.updatedAt = new Date();
+  }
+
   // JSON形式での出力（password_hashを除外）
   toJSON() {
     return {
