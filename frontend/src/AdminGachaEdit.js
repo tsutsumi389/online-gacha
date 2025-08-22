@@ -7,7 +7,10 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import ImageIcon from '@mui/icons-material/Image';
 import { myGachaAPI } from './utils/api';
+import ImageUpload from './components/ImageUpload';
+import ImageManager from './components/ImageManager';
 
 export default function AdminGachaEdit() {
   const { id: gachaId } = useParams();
@@ -30,6 +33,14 @@ export default function AdminGachaEdit() {
   const [openDeleteItem, setOpenDeleteItem] = useState(false);
   const [deleteItemId, setDeleteItemId] = useState(null);
   const [successMessage, setSuccessMessage] = useState(''); // 成功メッセージ
+  const [imageManagerOpen, setImageManagerOpen] = useState(false); // 画像管理ダイアログ
+  
+  // ガチャ画像管理用のstate
+  const [gachaImages, setGachaImages] = useState([]);
+  const [gachaImagesLoading, setGachaImagesLoading] = useState(false);
+  const [gachaImageError, setGachaImageError] = useState('');
+  const [draggedImage, setDraggedImage] = useState(null);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const isNewGacha = !gachaId;
   const currentGachaId = gachaId;
@@ -73,6 +84,162 @@ export default function AdminGachaEdit() {
     }
   };
 
+  // ガチャ画像一覧を取得
+  const fetchGachaImages = async () => {
+    if (!currentGachaId) return;
+    
+    try {
+      setGachaImagesLoading(true);
+      setGachaImageError('');
+      const response = await myGachaAPI.getGachaImages(currentGachaId);
+      setGachaImages(response.images || []);
+    } catch (err) {
+      // 404エラー（ガチャが見つからない、または画像が存在しない）の場合は空の配列を設定
+      if (err.message.includes('Not Found') || err.message.includes('Gacha not found')) {
+        setGachaImages([]);
+        setGachaImageError(''); // エラーメッセージをクリア
+      } else {
+        setGachaImageError('ガチャ画像の取得に失敗しました: ' + err.message);
+      }
+    } finally {
+      setGachaImagesLoading(false);
+    }
+  };
+
+  // ガチャ画像アップロード
+  const handleGachaImageUpload = async (file) => {
+    if (!currentGachaId) {
+      setGachaImageError('ガチャを保存してから画像をアップロードしてください');
+      return;
+    }
+
+    // ファイル検証
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+
+    if (!allowedTypes.includes(file.type)) {
+      setGachaImageError('対応していないファイル形式です。JPEG、PNG、WebP形式のファイルを選択してください。');
+      return;
+    }
+
+    if (file.size > maxSize) {
+      setGachaImageError(`ファイルサイズが大きすぎます。最大サイズ: ${Math.round(maxSize / 1024 / 1024)}MB`);
+      return;
+    }
+
+    try {
+      setGachaImagesLoading(true);
+      setGachaImageError('');
+      
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await myGachaAPI.uploadGachaImage(currentGachaId, formData);
+      
+      if (response.success) {
+        await fetchGachaImages(); // 画像一覧を再取得
+        setSuccessMessage('画像がアップロードされました');
+        setTimeout(() => setSuccessMessage(''), 3000);
+      }
+    } catch (err) {
+      setGachaImageError('画像のアップロードに失敗しました: ' + err.message);
+    } finally {
+      setGachaImagesLoading(false);
+    }
+  };
+
+  // ガチャ画像削除
+  const handleGachaImageDelete = async (imageId) => {
+    if (!window.confirm('この画像を削除しますか？')) return;
+
+    try {
+      setGachaImagesLoading(true);
+      setGachaImageError('');
+      
+      await myGachaAPI.deleteGachaImage(currentGachaId, imageId);
+      await fetchGachaImages(); // 画像一覧を再取得
+      setSuccessMessage('画像が削除されました');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      setGachaImageError('画像の削除に失敗しました: ' + err.message);
+    } finally {
+      setGachaImagesLoading(false);
+    }
+  };
+
+  // ガチャ画像の並び順変更
+  const handleGachaImageReorder = async (dragIndex, hoverIndex) => {
+    try {
+      const reorderedImages = [...gachaImages];
+      const draggedItem = reorderedImages[dragIndex];
+      reorderedImages.splice(dragIndex, 1);
+      reorderedImages.splice(hoverIndex, 0, draggedItem);
+
+      // 表示順序を更新
+      const imageOrders = reorderedImages.map((img, index) => ({
+        id: img.id,
+        display_order: index + 1
+      }));
+
+      setGachaImages(reorderedImages); // 先にUIを更新
+
+      await myGachaAPI.updateGachaImageOrder(currentGachaId, imageOrders);
+      await fetchGachaImages(); // 最新データを再取得
+    } catch (err) {
+      setGachaImageError('画像の並び順変更に失敗しました: ' + err.message);
+      await fetchGachaImages(); // エラー時は元に戻す
+    }
+  };
+
+  // メイン画像設定
+  const handleSetMainImage = async (imageId) => {
+    try {
+      setGachaImagesLoading(true);
+      setGachaImageError('');
+      
+      await myGachaAPI.setMainGachaImage(currentGachaId, imageId);
+      await fetchGachaImages(); // 画像一覧を再取得
+      setSuccessMessage('メイン画像が設定されました');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      setGachaImageError('メイン画像の設定に失敗しました: ' + err.message);
+    } finally {
+      setGachaImagesLoading(false);
+    }
+  };
+
+  // ドラッグ&ドロップ処理
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    if (!gachaImagesLoading) {
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    if (gachaImagesLoading) return;
+    
+    const files = Array.from(e.dataTransfer.files);
+    const imageFile = files.find(file => 
+      ['image/jpeg', 'image/png', 'image/webp'].includes(file.type)
+    );
+    
+    if (imageFile) {
+      handleGachaImageUpload(imageFile);
+    } else {
+      setGachaImageError('対応していないファイル形式です。JPEG、PNG、WebP形式のファイルを選択してください。');
+      setTimeout(() => setGachaImageError(''), 3000);
+    }
+  };
+
   useEffect(() => {
     if (gachaId) {
       fetchGacha();
@@ -82,6 +249,7 @@ export default function AdminGachaEdit() {
   useEffect(() => {
     if (currentGachaId) {
       fetchItems();
+      fetchGachaImages();
     }
   }, [currentGachaId]);
 
@@ -321,6 +489,189 @@ export default function AdminGachaEdit() {
         </Box>
       </Paper>
 
+      {/* ガチャ画像管理（ガチャが作成済みの場合） */}
+      {currentGachaId && (
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="h5" sx={{ mb: 2 }}>ガチャ画像管理</Typography>
+          
+          {gachaImageError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {gachaImageError}
+            </Alert>
+          )}
+
+          {/* 画像アップロード */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" sx={{ mb: 1 }}>画像追加</Typography>
+            <Paper
+              sx={{
+                p: 3,
+                border: '2px dashed',
+                borderColor: isDragOver ? 'primary.main' : 'divider',
+                textAlign: 'center',
+                cursor: gachaImagesLoading ? 'not-allowed' : 'pointer',
+                bgcolor: gachaImagesLoading ? 'action.disabled' : 
+                         isDragOver ? 'primary.light' : 'background.paper',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  borderColor: gachaImagesLoading ? 'divider' : 'primary.main',
+                  bgcolor: gachaImagesLoading ? 'action.disabled' : 'action.hover'
+                }
+              }}
+              onClick={() => !gachaImagesLoading && document.getElementById('gacha-image-input').click()}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <input
+                id="gacha-image-input"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    handleGachaImageUpload(file);
+                  }
+                }}
+                disabled={gachaImagesLoading}
+              />
+              
+              {gachaImagesLoading ? (
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                  <CircularProgress size={40} />
+                  <Typography color="text.secondary">アップロード中...</Typography>
+                </Box>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                  <ImageIcon sx={{ fontSize: 48, color: isDragOver ? 'primary.main' : 'text.secondary' }} />
+                  <Typography color={isDragOver ? 'primary.main' : 'text.primary'}>
+                    {isDragOver ? 'ファイルをドロップしてください' : 'クリックまたはドラッグ&ドロップで画像をアップロード'}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    JPEG, PNG, WebP形式（最大5MB）
+                  </Typography>
+                </Box>
+              )}
+            </Paper>
+          </Box>
+
+          {/* 画像一覧 */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="h6" sx={{ mb: 1 }}>
+              画像一覧 {gachaImages.length > 0 && `(${gachaImages.length}枚)`}
+            </Typography>
+            
+            {gachaImagesLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                <CircularProgress />
+              </Box>
+            ) : gachaImages.length === 0 ? (
+              <Typography color="text.secondary" sx={{ p: 2 }}>
+                画像がアップロードされていません
+              </Typography>
+            ) : (
+              <Box sx={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+                gap: 2 
+              }}>
+                {gachaImages.map((image, index) => (
+                  <Box
+                    key={image.id}
+                    sx={{
+                      border: 1,
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                      overflow: 'hidden',
+                      position: 'relative',
+                      ...(image.isMain && {
+                        border: 2,
+                        borderColor: 'primary.main',
+                      })
+                    }}
+                  >
+                    {/* メイン画像バッジ */}
+                    {image.isMain && (
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: 8,
+                          left: 8,
+                          bgcolor: 'primary.main',
+                          color: 'white',
+                          px: 1,
+                          py: 0.5,
+                          borderRadius: 1,
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          zIndex: 1
+                        }}
+                      >
+                        メイン
+                      </Box>
+                    )}
+                    
+                    {/* 画像 */}
+                    <img
+                      src={image.imageUrl}
+                      alt={image.filename}
+                      style={{
+                        width: '100%',
+                        height: '150px',
+                        objectFit: 'cover',
+                        display: 'block'
+                      }}
+                    />
+                    
+                    {/* 画像情報と操作ボタン */}
+                    <Box sx={{ p: 1 }}>
+                      <Typography variant="caption" noWrap>
+                        {image.filename}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        {Math.round(image.size / 1024)}KB
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        順序: {image.displayOrder}
+                      </Typography>
+                      
+                      <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
+                        {!image.isMain && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => handleSetMainImage(image.id)}
+                            disabled={gachaImagesLoading}
+                          >
+                            メイン設定
+                          </Button>
+                        )}
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleGachaImageDelete(image.id)}
+                          disabled={gachaImagesLoading}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Box>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
+
+          {gachaImages.length > 1 && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              画像の並び順を変更するには、今後のアップデートで対応予定です。
+              現在は最初にアップロードした画像がメイン画像として設定されます。
+            </Alert>
+          )}
+        </Paper>
+      )}
+
       {/* アイテム管理（ガチャが作成済みの場合） */}
       {currentGachaId && (
         <Paper sx={{ p: 3 }}>
@@ -362,9 +713,36 @@ export default function AdminGachaEdit() {
                         </TableCell>
                         <TableCell>
                           {item.image_url ? (
-                            <img src={item.image_url} alt={item.name} width={40} height={40} style={{ objectFit: 'cover' }} />
+                            <Box
+                              component="img"
+                              src={item.image_url}
+                              alt={item.name}
+                              sx={{
+                                width: 50,
+                                height: 50,
+                                objectFit: 'cover',
+                                borderRadius: 1,
+                                border: '1px solid',
+                                borderColor: 'grey.300'
+                              }}
+                            />
                           ) : (
-                            '画像なし'
+                            <Box
+                              sx={{
+                                width: 50,
+                                height: 50,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: '1px dashed',
+                                borderColor: 'grey.300',
+                                borderRadius: 1,
+                                color: 'text.secondary',
+                                fontSize: '0.8rem'
+                              }}
+                            >
+                              画像なし
+                            </Box>
                           )}
                         </TableCell>
                         <TableCell align="right">
@@ -413,12 +791,27 @@ export default function AdminGachaEdit() {
                   fullWidth 
                   inputProps={{ min: 0 }}
                 />
-                <TextField 
-                  label="画像URL" 
-                  value={editItem.imageUrl} 
-                  onChange={e => setEditItem({ ...editItem, imageUrl: e.target.value })} 
-                  fullWidth 
-                />
+                
+                {/* 画像アップロード */}
+                <Box>
+                  <Typography variant="subtitle1" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <ImageIcon />
+                    アイテム画像
+                  </Typography>
+                  <ImageUpload
+                    value={editItem.imageUrl}
+                    onChange={(url) => setEditItem({ ...editItem, imageUrl: url })}
+                  />
+                  <Box sx={{ mt: 1 }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => setImageManagerOpen(true)}
+                    >
+                      アップロード済み画像から選択
+                    </Button>
+                  </Box>
+                </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <Typography>公開状態</Typography>
                   <Switch 
@@ -454,6 +847,13 @@ export default function AdminGachaEdit() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* 画像管理ダイアログ */}
+      <ImageManager
+        open={imageManagerOpen}
+        onClose={() => setImageManagerOpen(false)}
+        onSelect={(url) => setEditItem({ ...editItem, imageUrl: url })}
+      />
     </Box>
   );
 }

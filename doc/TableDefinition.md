@@ -26,14 +26,25 @@
 | created_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 作成日時       |
 | updated_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 更新日時       |
 
-## gachas_images（ガチャ画像情報）
+## gacha_images（ガチャ画像情報）
 | カラム名         | 型           | 制約           | 説明           |
 |------------------|--------------|----------------|----------------|
 | id               | SERIAL       | PRIMARY KEY    | 画像ID         |
-| gacha_id         | INTEGER      | FOREIGN KEY    | ガチャID       |
-| image_url        | VARCHAR(255) | NOT NULL       | 画像URL        |
-| sort_order       | INTEGER      | DEFAULT 0      | 並び順         |
-| created_at       | TIMESTAMP    | NOT NULL       | 登録日時       |
+| gacha_id         | INTEGER      | FOREIGN KEY (gachas.id) | ガチャID |
+| image_url        | VARCHAR(500) | NOT NULL       | 画像URL (MinIO) |
+| object_key       | VARCHAR(500) | NOT NULL       | MinIOオブジェクトキー |
+| filename         | VARCHAR(255) | NOT NULL       | 元ファイル名   |
+| size             | INTEGER      | NOT NULL       | ファイルサイズ (bytes) |
+| mime_type        | VARCHAR(50)  | NOT NULL       | MIMEタイプ     |
+| display_order    | INTEGER      | NOT NULL DEFAULT 1 | 表示順序 (1が最初) |
+| is_main          | BOOLEAN      | NOT NULL DEFAULT FALSE | メイン画像フラグ |
+| created_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 作成日時 |
+| updated_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 更新日時 |
+
+**制約**:
+- UNIQUE(gacha_id, display_order) : 同一ガチャ内での表示順序の重複を防ぐ
+- FOREIGN KEY (gacha_id) REFERENCES gachas(id) ON DELETE CASCADE
+- CHECK (display_order > 0) : 表示順序は1以上
 
 ## gacha_items（ガチャ内の商品情報）
 | カラム名         | 型           | 制約           | 説明           |

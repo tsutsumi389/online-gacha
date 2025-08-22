@@ -101,8 +101,13 @@
 	  - JWT: ステートレス認証
 	  - bcrypt: パスワードハッシュ化
 	  - PostgreSQL: データベースアクセス
+	  - MinIO Client: オブジェクトストレージアクセス
 - **DB**：PostgreSQL
-- **インフラ**：Docker（docker-composeでWeb/DBを構築）
+- **ストレージ**：MinIO（S3互換オブジェクトストレージ）
+	- ガチャアイテム画像の保存・配信
+	- ユーザープロフィール画像の保存（将来対応）
+	- 画像の自動リサイズ・最適化（将来対応）
+- **インフラ**：Docker（docker-composeでWeb/DB/MinIOを構築）
 
 ### 4.1 認証システム
 - **認証方式**: JWT（JSON Web Token）
@@ -114,9 +119,19 @@
 
 - users（ユーザー情報）- roleカラム削除済み
 - gachas（ガチャ情報）- user_idでユーザーと関連付け
-- gacha_items（ガチャ内のアイテム情報）- rarityカラムなし
+- gacha_items（ガチャ内のアイテム情報）- rarityカラムなし、image_urlはMinIO上のオブジェクトキーを格納
 - gacha_results（ガチャ実行履歴）- 将来実装予定
-- gachas_images（ガチャ画像情報）- 将来実装予定
+- user_images（ユーザー画像情報）- MinIO上のプロフィール画像管理、将来実装予定
+
+### 5.1 画像管理設計
+- **保存先**: MinIO (S3互換オブジェクトストレージ)
+- **バケット構成**:
+  - `gacha-images`: ガチャアイテム画像
+  - `user-images`: ユーザープロフィール画像（将来対応）
+- **画像URL形式**: `http://localhost:9000/gacha-images/{オブジェクトキー}`
+- **アクセス制御**: パブリック読み取り許可（画像表示用）
+- **ファイル形式**: JPEG, PNG, WebP対応
+- **サイズ制限**: 最大5MB（フロントエンド・バックエンド両方で制限）
 
 ## 6. 機能一覧
 
@@ -134,43 +149,101 @@
 | マイガチャ管理     | 自分が作成したガチャの一覧・管理             | ログイン済み   | 必要     | ✅ 完了   |
 | ガチャ作成・編集   | ガチャの新規作成・編集・削除                  | ログイン済み   | 必要     | ✅ 完了   |
 | アイテム管理       | ガチャ内アイテムの登録・編集・削除            | ログイン済み   | 必要     | ✅ 完了   |
+| 画像アップロード   | アイテム画像のMinIOへのアップロード          | ログイン済み   | 必要     | ❌ 未実装 |
+| 画像管理           | アップロード済み画像の一覧・削除              | ログイン済み   | 必要     | ❌ 未実装 |
 | プロフィール管理   | ユーザー情報編集・実行履歴確認               | ログイン済み   | 必要     | ❌ 未実装 |
 
-## 7. Docker構成（例）
+## 7. Docker構成
 
 - web: Webアプリケーション
+- frontend: Reactフロントエンド（開発環境）
 - db: PostgreSQL
+- minio: MinIO（S3互換オブジェクトストレージ）
+- minio-init: MinIO初期化（バケット作成・設定）
 
 ```yaml
 version: '3'
 services:
-	web:
-		build: .
-		ports:
-			- "8080:8080"
-		depends_on:
-			- db
-	db:
-		image: postgres:16
-		environment:
-			POSTGRES_USER: user
-			POSTGRES_PASSWORD: password
-			POSTGRES_DB: gacha_db
-		ports:
-			- "5432:5432"
-		volumes:
-			- db_data:/var/lib/postgresql/data
+  web:
+    build: ./web
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+      - minio
+    env_file:
+      - .env
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: gacha_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio_user
+      MINIO_ROOT_PASSWORD: minio_password
+    ports:
+      - "9000:9000"  # MinIO API
+      - "9001:9001"  # MinIO Console
+    volumes:
+      - minio_data:/data
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set myminio http://minio:9000 minio_user minio_password;
+      mc mb myminio/gacha-images;
+      mc anonymous set download myminio/gacha-images;
+      echo 'MinIO初期化完了';
+      "
+    restart: "no"
 volumes:
-	db_data:
+  db_data:
+  minio_data:
 ```
 
 ## 8. 今後の検討事項
 
-- 認証・認可方式
+- 認証・認可方式の強化
 - 決済機能の有無
 - 商品発送管理の有無
+- 画像の自動リサイズ・最適化機能
+- CDN連携による画像配信の高速化
+- 画像のメタデータ管理（サイズ、フォーマット、アップロード日時等）
+- 画像の不正利用対策（透かし、アクセス制限等）
 
 ## 9. 最新の変更履歴
+
+### 2025年8月22日 - MinIO画像ストレージ統合
+- **インフラ改修**:
+  - MinIOコンテナの追加: S3互換オブジェクトストレージ
+  - docker-compose.yml: MinIOサービスと初期化スクリプトの追加
+  - 環境変数: MinIO接続設定の追加（.env）
+
+- **画像管理設計**:
+  - 画像保存先をMinIOに変更（従来のローカルファイルシステムから移行）
+  - バケット構成: `gacha-images`（アイテム画像）、`user-images`（プロフィール画像、将来対応）
+  - アクセス制御: パブリック読み取り許可による直接画像表示
+  - ファイル制限: 最大5MB、JPEG/PNG/WebP対応
+
+- **システム構成更新**:
+  - バックエンド: MinIO Clientライブラリの統合予定
+  - データベース設計: gacha_itemsのimage_urlをMinIOオブジェクトキー対応
+  - 新機能追加予定: 画像アップロード・管理機能
 
 ### 2025年8月21日 - URL構造の分離実装
 - **フロントエンド改修**:

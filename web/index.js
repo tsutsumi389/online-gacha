@@ -2,9 +2,11 @@
 import Fastify from 'fastify';
 import database from './src/config/database.js';
 import { authenticate } from './src/middleware/auth.js';
+import { ensureBucketExists } from './src/utils/minio.js';
 import authRoutes from './src/routes/auth.js';
 import gachaRoutes from './src/routes/gacha.js';
 import userGachaRoutes from './src/routes/admin.js';
+import imageRoutes from './src/routes/images.js';
 import { errorHandler, setupGracefulShutdown } from './src/utils/helpers.js';
 
 const fastify = Fastify({ logger: true });
@@ -27,6 +29,15 @@ await fastify.register(import('@fastify/cors'), {
 // データベース接続
 await database.connect();
 
+// MinIOバケットの初期化
+try {
+  await ensureBucketExists();
+  fastify.log.info('MinIO bucket initialized successfully');
+} catch (error) {
+  fastify.log.error('Failed to initialize MinIO bucket:', error);
+  process.exit(1);
+}
+
 // 認証ミドルウェアをfastifyインスタンスに追加
 fastify.decorate('authenticate', authenticate(fastify));
 
@@ -48,6 +59,9 @@ fastify.register(gachaRoutes, { prefix: '/api/gachas' });
 
 // ユーザーガチャ管理のルート
 fastify.register(userGachaRoutes, { prefix: '/api/my' });
+
+// 画像管理のルート
+fastify.register(imageRoutes, { prefix: '/api/admin/images' });
 
 // エラーハンドラーの設定
 fastify.setErrorHandler(errorHandler(fastify));

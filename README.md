@@ -27,9 +27,11 @@
 - **マイガチャ管理**: 自分のガチャの一覧・管理 (`/my-gacha`)
 - **ガチャ新規作成**: 新しいガチャの作成 (`/my-gacha/new`)
 - **ガチャ編集**: 既存ガチャの編集・アイテム管理 (`/my-gacha/edit/:id`)
+- **ガチャ画像管理**: 複数画像のアップロード・削除・順序変更・メイン画像設定
 - **アイテム管理**: ガチャアイテムの設定・在庫管理
 - **公開状態管理**: ガチャの公開/非公開の即座切り替え
 - **ページネーション**: ガチャ一覧のページング機能
+- **マルチ画像表示**: ガチャ一覧での複数画像スライド表示
 
 **注意**: すべてのユーザーは同等の権限を持ち、ガチャの作成と実行の両方が可能です。
 
@@ -40,6 +42,7 @@
 - **Material-UI (MUI)**: UIコンポーネント
 - **Framer Motion**: アニメーション
 - **React Router**: ページルーティング
+- **Swiper.js**: 画像スライド表示
 
 ### バックエンド
 - **Node.js**: ランタイム環境
@@ -48,8 +51,9 @@
 - **bcrypt**: パスワードハッシュ化
 - **Joi**: サーバーサイドバリデーション
 
-### データベース
+### データベース・ストレージ
 - **PostgreSQL 16**: メインデータベース
+- **MinIO**: S3互換オブジェクトストレージ（画像管理）
 
 ### インフラ・開発環境
 - **Docker & Docker Compose**: コンテナ化
@@ -99,6 +103,7 @@ make seed
 - **フロントエンド**: http://localhost:3000
 - **バックエンドAPI**: http://localhost:8080
 - **データベース**: localhost:5432
+- **MinIO**: http://localhost:9000 (Admin UI: http://localhost:9001)
 
 ## 📖 使用方法
 
@@ -119,6 +124,8 @@ make seed
    - http://localhost:3000/my-gacha で自分のガチャを管理
    - 新規ガチャ作成・編集・削除が可能
    - アイテム管理機能でガチャの内容を設定
+   - ガチャ画像のアップロード・管理機能
+   - 複数画像のスライド表示対応
 
 ### URL構造
 ```
@@ -142,6 +149,13 @@ make seed
 2. **アイテム管理**
    - ガチャ編集画面で「アイテム追加」でガチャ内容を設定
    - アイテム名、説明、在庫数、画像URLを設定
+
+3. **ガチャ画像管理**
+   - ガチャ編集画面で画像のドラッグ&ドロップアップロード
+   - 複数画像の管理（最大10MB、JPEG/PNG/GIF対応）
+   - 画像の表示順序変更とメイン画像設定
+   - 画像削除機能
+   - ガチャ一覧での自動スライド表示（3秒間隔）
 
 ## 🔌 API仕様
 
@@ -171,6 +185,15 @@ GET  /api/my/gachas/:id/items                 # アイテム一覧取得
 POST /api/my/gachas/:id/items                 # アイテム追加
 PUT  /api/my/gachas/:gachaId/items/:itemId    # アイテム編集
 DELETE /api/my/gachas/:gachaId/items/:itemId  # アイテム削除
+```
+
+### ガチャ画像管理関連
+```
+GET  /api/my/gachas/:id/images                # ガチャ画像一覧取得
+POST /api/my/gachas/:id/images                # ガチャ画像アップロード
+DELETE /api/my/gachas/:id/images/:imageId     # ガチャ画像削除
+PUT  /api/my/gachas/:id/images/:imageId/main  # メイン画像設定
+PUT  /api/my/gachas/:id/images/order          # 画像表示順序更新
 ```
 
 ### ガチャ実行関連（未実装）
@@ -220,7 +243,8 @@ online-gacha/
 │   │   ├── schemas/
 │   │   │   └── validation.js    # Joiバリデーションスキーマ
 │   │   └── utils/
-│   │       └── helpers.js       # ヘルパー関数
+│   │       ├── helpers.js       # ヘルパー関数
+│   │       └── minio.js         # MinIO設定・ヘルパー
 │   ├── migrations/              # データベースマイグレーション
 │   └── seeds/                   # サンプルデータ
 ├── docker-compose.yml           # Docker設定
@@ -292,12 +316,24 @@ make clean
 
 **注意**: roleカラムやrarityカラムは現在の実装では削除されています。
 
+#### gacha_images テーブル
+```sql
+- id: 画像ID（SERIAL PRIMARY KEY）
+- gacha_id: 所属ガチャID（INTEGER FOREIGN KEY, CASCADE DELETE）
+- image_url: 画像URL（VARCHAR(500) NOT NULL）
+- display_order: 表示順序（INTEGER DEFAULT 0）
+- is_main: メイン画像フラグ（BOOLEAN DEFAULT FALSE）
+- created_at, updated_at: タイムスタンプ（TIMESTAMP DEFAULT CURRENT_TIMESTAMP）
+```
+
 ### セキュリティ考慮事項
 
 - **JWT認証**: HTTPOnlyクッキーでトークン管理
 - **パスワードハッシュ化**: bcryptで12 salt rounds
 - **入力バリデーション**: フロントエンド・バックエンド両方で実装
 - **CORS設定**: フロントエンドからのアクセスのみ許可
+- **ファイルアップロード**: 所有者チェック、ファイル形式・サイズ検証
+- **MinIOセキュリティ**: 専用バケット、オブジェクトキー管理
 
 ## 🔍 トラブルシューティング
 
@@ -351,6 +387,31 @@ docker compose logs db
 
 ## 📅 更新履歴
 
+### 2025年8月22日 - ガチャ画像管理システム実装
+- **ストレージシステム追加**:
+  - MinIO S3互換オブジェクトストレージ導入
+  - Docker Compose環境への MinIO 統合
+  - ガチャ画像専用フォルダ構造実装
+
+- **データベース拡張**:
+  - `gacha_images` テーブル追加（画像URL、表示順序、メイン画像フラグ）
+  - 外部キー制約とCASCADE DELETE設定
+
+- **フロントエンド機能追加**:
+  - ガチャ画像管理UI実装（ドラッグ&ドロップアップロード）
+  - マルチ画像スライド表示対応（Swiper.js使用）
+  - 画像削除、順序変更、メイン画像設定機能
+
+- **バックエンド機能追加**:
+  - ガチャ画像CRUD API エンドポイント実装
+  - MinIO連携による画像ストレージ管理
+  - マルチパートファイルアップロード対応
+
+- **技術仕様**:
+  - ファイル形式: JPEG, PNG, GIF対応
+  - ファイルサイズ制限: 10MB
+  - セキュリティ: 所有者ベースアクセス制御
+
 ### 2025年8月21日 - URL構造分離実装
 - ガチャ一覧とガチャ詳細のURL分離: `/gacha` → `/gacha/:id`
 - マイガチャ管理とガチャ編集のURL分離: `/my-gacha` → `/my-gacha/edit/:id`
@@ -373,9 +434,11 @@ docker compose logs db
 ✅ **実装完了**
 - ユーザー認証（登録・ログイン・ログアウト）
 - ガチャ管理（作成・編集・削除・公開状態切り替え）
+- ガチャ画像管理（アップロード・削除・順序変更・メイン画像設定）
 - アイテム管理（追加・編集・削除）
 - ページネーション機能
 - JWT認証とHTTPOnly Cookie
+- マルチ画像スライド表示
 
 🚧 **部分実装**
 - ガチャ一覧表示（ユーザー向け）

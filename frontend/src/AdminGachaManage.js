@@ -3,7 +3,9 @@ import { Box, Typography, Button, Table, TableBody, TableCell, TableContainer, T
 import { useNavigate } from 'react-router-dom';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import ImageIcon from '@mui/icons-material/Image';
 import { myGachaAPI } from './utils/api';
+import ImageManager from './components/ImageManager';
 
 export default function AdminGachaManage() {
   const navigate = useNavigate();
@@ -14,6 +16,7 @@ export default function AdminGachaManage() {
   const [deleteId, setDeleteId] = useState(null);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState(null);
+  const [imageManagerOpen, setImageManagerOpen] = useState(false); // 画像管理ダイアログ
 
   // ガチャ一覧を取得
   const fetchGachas = async () => {
@@ -79,9 +82,18 @@ export default function AdminGachaManage() {
         </Alert>
       )}
 
-      <Button variant="contained" color="primary" sx={{ mb: 2 }} onClick={handleNew}>
-        新規作成
-      </Button>
+      <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+        <Button variant="contained" color="primary" onClick={handleNew}>
+          新規作成
+        </Button>
+        <Button 
+          variant="outlined" 
+          startIcon={<ImageIcon />}
+          onClick={() => setImageManagerOpen(true)}
+        >
+          画像管理
+        </Button>
+      </Box>
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -182,6 +194,12 @@ export default function AdminGachaManage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* 画像管理ダイアログ */}
+      <ImageManager
+        open={imageManagerOpen}
+        onClose={() => setImageManagerOpen(false)}
+      />
     </Box>
   );
 }

@@ -373,20 +373,20 @@ export default function UserGachaList() {
                     <CardActionArea onClick={() => navigate(`/gacha/${gacha.id}`)}>
                       {/* 画像スライダー */}
                       <Box sx={{ position: 'relative', height: 250 }}>
-                        {gacha.images && gacha.images.length > 0 ? (
+                        {gacha.main_image_url ? (
+                          <CardMedia
+                            component="img"
+                            height="250"
+                            image={gacha.main_image_url}
+                            alt={gacha.name}
+                            sx={{ objectFit: 'cover' }}
+                          />
+                        ) : gacha.images && gacha.images.length > 0 ? (
                           <Swiper
-                            modules={[Navigation, Pagination, A11y, Autoplay, EffectCoverflow]}
+                            modules={[Navigation, Pagination, Autoplay]}
                             navigation
                             pagination={{ clickable: true }}
-                            autoplay={{ delay: 4000, disableOnInteraction: false }}
-                            effect="coverflow"
-                            coverflowEffect={{
-                              rotate: 30,
-                              stretch: 10,
-                              depth: 60,
-                              modifier: 1,
-                            }}
-                            spaceBetween={8}
+                            autoplay={{ delay: 3000 }}
                             slidesPerView={1}
                             style={{ height: '100%' }}
                           >
