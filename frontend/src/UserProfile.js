@@ -14,8 +14,25 @@ import {
   Paper,
   IconButton,
   InputAdornment,
+  Chip,
+  Container,
+  Fade,
+  Zoom,
+  useTheme,
+  alpha,
 } from '@mui/material';
-import { Visibility, VisibilityOff, Person, Email, Lock } from '@mui/icons-material';
+import { 
+  Visibility, 
+  VisibilityOff, 
+  Person, 
+  Email, 
+  Lock,
+  EditOutlined,
+  SaveOutlined,
+  Security,
+  CheckCircleOutline,
+  InfoOutlined,
+} from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -62,6 +79,7 @@ const profileValidationSchema = yup.object({
 });
 
 const UserProfile = () => {
+  const theme = useTheme();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -228,285 +246,399 @@ const UserProfile = () => {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
+      <Container maxWidth="md">
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+          <Box textAlign="center">
+            <CircularProgress size={60} thickness={4} />
+            <Typography variant="h6" sx={{ mt: 2 }}>
+              プロフィール情報を読み込み中...
+            </Typography>
+          </Box>
+        </Box>
+      </Container>
     );
   }
 
   return (
-    <Box sx={{ maxWidth: 800, mx: 'auto', p: 3 }}>
-      <Typography variant="h4" gutterBottom sx={{ mb: 3 }}>
-        プロフィール管理
-      </Typography>
+    <Container maxWidth="md">
+      <Box sx={{ py: 4 }}>
+        {/* ヘッダーセクション */}
+        <Fade in timeout={800}>
+          <Box sx={{ mb: 4, textAlign: 'center' }}>
+            <Typography variant="h3" component="h1" gutterBottom sx={{ 
+              fontWeight: 700,
+              background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}>
+              プロフィール管理
+            </Typography>
+            <Typography variant="h6" color="text.secondary">
+              アカウント情報の変更・更新
+            </Typography>
+          </Box>
+        </Fade>
 
-      {/* 現在の登録情報 */}
-      <Paper elevation={1} sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom color="primary">
-          現在の登録情報
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={4}>
-            <Typography variant="body2" color="text.secondary">
-              ユーザーID
-            </Typography>
-            <Typography variant="body1" fontWeight="bold">
-              {user?.id}
-            </Typography>
-          </Grid>
-          <Grid item xs={12} sm={4}>
-            <Typography variant="body2" color="text.secondary">
-              ユーザー名
-            </Typography>
-            <Typography variant="body1" fontWeight="bold">
-              {user?.name}
-            </Typography>
-          </Grid>
-          <Grid item xs={12} sm={4}>
-            <Typography variant="body2" color="text.secondary">
-              メールアドレス
-            </Typography>
-            <Typography variant="body1" fontWeight="bold">
-              {user?.email}
-            </Typography>
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <Typography variant="body2" color="text.secondary">
-              登録日時
-            </Typography>
-            <Typography variant="body1">
-              {user?.createdAt ? new Date(user.createdAt).toLocaleString() : '-'}
-            </Typography>
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <Typography variant="body2" color="text.secondary">
-              最終更新日時
-            </Typography>
-            <Typography variant="body1">
-              {user?.updatedAt ? new Date(user.updatedAt).toLocaleString() : '-'}
-            </Typography>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* プロフィール変更フォーム */}
-      <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom color="primary">
-            プロフィール変更
-          </Typography>
-          
-          <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mt: 2 }}>
-            <Grid container spacing={3}>
-              {/* ユーザー名変更 */}
-              <Grid item xs={12}>
-                <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Person color="action" />
-                  ユーザー名変更
+        {/* プロフィール変更フォーム */}
+        <Zoom in timeout={600} style={{ transitionDelay: '400ms' }}>
+          <Card 
+            elevation={0}
+            sx={{ 
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.12)}`,
+              borderRadius: 3,
+              background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.01)}, ${alpha(theme.palette.secondary.main, 0.01)})`,
+            }}
+          >
+            <CardContent sx={{ p: 4 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                <EditOutlined color="primary" sx={{ mr: 1 }} />
+                <Typography variant="h5" component="h2" sx={{ fontWeight: 600 }}>
+                  プロフィール変更
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  現在: {user?.name}
-                </Typography>
-                <Controller
-                  name="name"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      placeholder="変更する場合のみ入力してください"
-                      error={!!errors.name}
-                      helperText={errors.name?.message}
-                      variant="outlined"
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <Divider />
-              </Grid>
-
-              {/* メールアドレス変更 */}
-              <Grid item xs={12}>
-                <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Email color="action" />
-                  メールアドレス変更
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  現在: {user?.email}
-                </Typography>
-                <Controller
-                  name="email"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      type="email"
-                      placeholder="変更する場合のみ入力してください"
-                      error={!!errors.email}
-                      helperText={errors.email?.message}
-                      variant="outlined"
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <Divider />
-              </Grid>
-
-              {/* パスワード変更 */}
-              <Grid item xs={12}>
-                <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Lock color="action" />
-                  パスワード変更
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  パスワードを変更する場合は、以下の3つのフィールドをすべて入力してください
-                </Typography>
-                
-                <Grid container spacing={2}>
+                {hasChanges && (
+                  <Chip 
+                    label="変更あり" 
+                    size="small" 
+                    color="warning" 
+                    sx={{ ml: 'auto' }}
+                  />
+                )}
+              </Box>
+              
+              <Box component="form" onSubmit={handleSubmit(onSubmit)}>
+                <Grid container spacing={4}>
+                  {/* ユーザー名変更セクション */}
                   <Grid item xs={12}>
-                    <Controller
-                      name="currentPassword"
-                      control={control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          type={showPasswords.current ? 'text' : 'password'}
-                          label="現在のパスワード"
-                          placeholder="変更する場合のみ入力"
-                          error={!!errors.currentPassword}
-                          helperText={errors.currentPassword?.message}
-                          variant="outlined"
-                          InputProps={{
-                            endAdornment: (
-                              <InputAdornment position="end">
-                                <IconButton
-                                  onClick={() => togglePasswordVisibility('current')}
-                                  edge="end"
-                                >
-                                  {showPasswords.current ? <VisibilityOff /> : <Visibility />}
-                                </IconButton>
-                              </InputAdornment>
-                            ),
-                          }}
-                        />
-                      )}
-                    />
+                    <Box sx={{ 
+                      p: 3, 
+                      borderRadius: 2, 
+                      bgcolor: alpha(theme.palette.primary.main, 0.02),
+                      border: `1px solid ${alpha(theme.palette.primary.main, 0.08)}`
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                        <Person color="primary" sx={{ mr: 1 }} />
+                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                          ユーザー名変更
+                        </Typography>
+                      </Box>
+                      <Box sx={{ 
+                        p: 2, 
+                        mb: 2, 
+                        borderRadius: 1, 
+                        bgcolor: alpha(theme.palette.info.main, 0.04),
+                        border: `1px solid ${alpha(theme.palette.info.main, 0.08)}`
+                      }}>
+                        <Typography variant="body2" color="text.secondary">
+                          現在のユーザー名: <strong>{user?.name}</strong>
+                        </Typography>
+                      </Box>
+                      <Controller
+                        name="name"
+                        control={control}
+                        render={({ field }) => (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            placeholder="新しいユーザー名を入力してください"
+                            error={!!errors.name}
+                            helperText={errors.name?.message}
+                            variant="outlined"
+                            sx={{
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2,
+                                bgcolor: 'background.paper',
+                                '&:hover': {
+                                  '& .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: theme.palette.primary.main,
+                                  },
+                                },
+                              },
+                            }}
+                          />
+                        )}
+                      />
+                    </Box>
                   </Grid>
-                  
-                  <Grid item xs={12} sm={6}>
-                    <Controller
-                      name="newPassword"
-                      control={control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          type={showPasswords.new ? 'text' : 'password'}
-                          label="新しいパスワード"
-                          placeholder="8文字以上、英数字を含む"
-                          error={!!errors.newPassword}
-                          helperText={errors.newPassword?.message}
-                          variant="outlined"
-                          InputProps={{
-                            endAdornment: (
-                              <InputAdornment position="end">
-                                <IconButton
-                                  onClick={() => togglePasswordVisibility('new')}
-                                  edge="end"
-                                >
-                                  {showPasswords.new ? <VisibilityOff /> : <Visibility />}
-                                </IconButton>
-                              </InputAdornment>
-                            ),
-                          }}
-                        />
-                      )}
-                    />
+
+                  {/* メールアドレス変更セクション */}
+                  <Grid item xs={12}>
+                    <Box sx={{ 
+                      p: 3, 
+                      borderRadius: 2, 
+                      bgcolor: alpha(theme.palette.success.main, 0.02),
+                      border: `1px solid ${alpha(theme.palette.success.main, 0.08)}`
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                        <Email color="success" sx={{ mr: 1 }} />
+                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                          メールアドレス変更
+                        </Typography>
+                      </Box>
+                      <Box sx={{ 
+                        p: 2, 
+                        mb: 2, 
+                        borderRadius: 1, 
+                        bgcolor: alpha(theme.palette.info.main, 0.04),
+                        border: `1px solid ${alpha(theme.palette.info.main, 0.08)}`
+                      }}>
+                        <Typography variant="body2" color="text.secondary">
+                          現在のメールアドレス: <strong>{user?.email}</strong>
+                        </Typography>
+                      </Box>
+                      <Controller
+                        name="email"
+                        control={control}
+                        render={({ field }) => (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            type="email"
+                            placeholder="新しいメールアドレスを入力してください"
+                            error={!!errors.email}
+                            helperText={errors.email?.message}
+                            variant="outlined"
+                            sx={{
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2,
+                                bgcolor: 'background.paper',
+                                '&:hover': {
+                                  '& .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: theme.palette.success.main,
+                                  },
+                                },
+                              },
+                            }}
+                          />
+                        )}
+                      />
+                    </Box>
                   </Grid>
-                  
-                  <Grid item xs={12} sm={6}>
-                    <Controller
-                      name="confirmPassword"
-                      control={control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          type={showPasswords.confirm ? 'text' : 'password'}
-                          label="新しいパスワード確認"
-                          placeholder="新しいパスワードと同じ内容"
-                          error={!!errors.confirmPassword}
-                          helperText={errors.confirmPassword?.message}
-                          variant="outlined"
-                          InputProps={{
-                            endAdornment: (
-                              <InputAdornment position="end">
-                                <IconButton
-                                  onClick={() => togglePasswordVisibility('confirm')}
-                                  edge="end"
-                                >
-                                  {showPasswords.confirm ? <VisibilityOff /> : <Visibility />}
-                                </IconButton>
-                              </InputAdornment>
-                            ),
-                          }}
-                        />
+
+                  {/* パスワード変更セクション */}
+                  <Grid item xs={12}>
+                    <Box sx={{ 
+                      p: 3, 
+                      borderRadius: 2, 
+                      bgcolor: alpha(theme.palette.warning.main, 0.02),
+                      border: `1px solid ${alpha(theme.palette.warning.main, 0.08)}`
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                        <Security color="warning" sx={{ mr: 1 }} />
+                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                          パスワード変更
+                        </Typography>
+                      </Box>
+                      <Alert 
+                        severity="info" 
+                        sx={{ mb: 3, borderRadius: 2 }}
+                        icon={<Lock />}
+                      >
+                        パスワードを変更する場合は、以下の3つのフィールドをすべて入力してください
+                      </Alert>
+                      
+                      <Grid container spacing={2}>
+                        <Grid item xs={12}>
+                          <Controller
+                            name="currentPassword"
+                            control={control}
+                            render={({ field }) => (
+                              <TextField
+                                {...field}
+                                fullWidth
+                                type={showPasswords.current ? 'text' : 'password'}
+                                label="現在のパスワード"
+                                placeholder="現在のパスワードを入力"
+                                error={!!errors.currentPassword}
+                                helperText={errors.currentPassword?.message}
+                                variant="outlined"
+                                sx={{
+                                  '& .MuiOutlinedInput-root': {
+                                    borderRadius: 2,
+                                    bgcolor: 'background.paper',
+                                  },
+                                }}
+                                InputProps={{
+                                  endAdornment: (
+                                    <InputAdornment position="end">
+                                      <IconButton
+                                        onClick={() => togglePasswordVisibility('current')}
+                                        edge="end"
+                                        sx={{ color: theme.palette.warning.main }}
+                                      >
+                                        {showPasswords.current ? <VisibilityOff /> : <Visibility />}
+                                      </IconButton>
+                                    </InputAdornment>
+                                  ),
+                                }}
+                              />
+                            )}
+                          />
+                        </Grid>
+                        
+                        <Grid item xs={12}>
+                          <Controller
+                            name="newPassword"
+                            control={control}
+                            render={({ field }) => (
+                              <TextField
+                                {...field}
+                                fullWidth
+                                type={showPasswords.new ? 'text' : 'password'}
+                                label="新しいパスワード"
+                                placeholder="8文字以上、英数字を含む"
+                                error={!!errors.newPassword}
+                                helperText={errors.newPassword?.message}
+                                variant="outlined"
+                                sx={{
+                                  '& .MuiOutlinedInput-root': {
+                                    borderRadius: 2,
+                                    bgcolor: 'background.paper',
+                                  },
+                                }}
+                                InputProps={{
+                                  endAdornment: (
+                                    <InputAdornment position="end">
+                                      <IconButton
+                                        onClick={() => togglePasswordVisibility('new')}
+                                        edge="end"
+                                        sx={{ color: theme.palette.warning.main }}
+                                      >
+                                        {showPasswords.new ? <VisibilityOff /> : <Visibility />}
+                                      </IconButton>
+                                    </InputAdornment>
+                                  ),
+                                }}
+                              />
+                            )}
+                          />
+                        </Grid>
+                        
+                        <Grid item xs={12}>
+                          <Controller
+                            name="confirmPassword"
+                            control={control}
+                            render={({ field }) => (
+                              <TextField
+                                {...field}
+                                fullWidth
+                                type={showPasswords.confirm ? 'text' : 'password'}
+                                label="新しいパスワード確認"
+                                placeholder="新しいパスワードを再入力"
+                                error={!!errors.confirmPassword}
+                                helperText={errors.confirmPassword?.message}
+                                variant="outlined"
+                                sx={{
+                                  '& .MuiOutlinedInput-root': {
+                                    borderRadius: 2,
+                                    bgcolor: 'background.paper',
+                                  },
+                                }}
+                                InputProps={{
+                                  endAdornment: (
+                                    <InputAdornment position="end">
+                                      <IconButton
+                                        onClick={() => togglePasswordVisibility('confirm')}
+                                        edge="end"
+                                        sx={{ color: theme.palette.warning.main }}
+                                      >
+                                        {showPasswords.confirm ? <VisibilityOff /> : <Visibility />}
+                                      </IconButton>
+                                    </InputAdornment>
+                                  ),
+                                }}
+                              />
+                            )}
+                          />
+                        </Grid>
+                      </Grid>
+                    </Box>
+                  </Grid>
+
+                  {/* 保存ボタンセクション */}
+                  <Grid item xs={12}>
+                    <Box sx={{ 
+                      textAlign: 'center', 
+                      p: 3,
+                      borderRadius: 2,
+                      bgcolor: hasChanges ? alpha(theme.palette.success.main, 0.04) : alpha(theme.palette.grey[500], 0.04),
+                      border: `1px solid ${hasChanges ? alpha(theme.palette.success.main, 0.12) : alpha(theme.palette.grey[500], 0.12)}`,
+                    }}>
+                      <Button
+                        type="submit"
+                        variant="contained"
+                        size="large"
+                        disabled={!hasChanges || saving}
+                        startIcon={saving ? <CircularProgress size={20} /> : <SaveOutlined />}
+                        sx={{ 
+                          minWidth: 200,
+                          height: 56,
+                          borderRadius: 3,
+                          fontSize: '1.1rem',
+                          fontWeight: 600,
+                          background: hasChanges ? `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})` : undefined,
+                          '&:hover': {
+                            background: hasChanges ? `linear-gradient(45deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})` : undefined,
+                            transform: hasChanges ? 'translateY(-2px)' : undefined,
+                          },
+                          transition: 'all 0.3s ease',
+                        }}
+                      >
+                        {saving ? '保存中...' : '変更を保存'}
+                      </Button>
+                      
+                      {!hasChanges && (
+                        <Box sx={{ mt: 2 }}>
+                          <Chip 
+                            label="変更する項目を入力してください" 
+                            color="default" 
+                            variant="outlined"
+                            icon={<InfoOutlined />}
+                          />
+                        </Box>
                       )}
-                    />
+
+                      {hasChanges && (
+                        <Box sx={{ mt: 2 }}>
+                          <Chip 
+                            label="変更が検出されました" 
+                            color="success" 
+                            variant="outlined"
+                            icon={<CheckCircleOutline />}
+                          />
+                        </Box>
+                      )}
+                    </Box>
                   </Grid>
                 </Grid>
-              </Grid>
+              </Box>
+            </CardContent>
+          </Card>
+        </Zoom>
 
-              {/* 保存ボタン */}
-              <Grid item xs={12}>
-                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    size="large"
-                    disabled={!hasChanges || saving}
-                    sx={{ minWidth: 200 }}
-                  >
-                    {saving ? (
-                      <>
-                        <CircularProgress size={20} sx={{ mr: 1 }} />
-                        保存中...
-                      </>
-                    ) : (
-                      '保存'
-                    )}
-                  </Button>
-                </Box>
-                
-                {!hasChanges && (
-                  <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 1 }}>
-                    変更する項目を入力してください
-                  </Typography>
-                )}
-              </Grid>
-            </Grid>
-          </Box>
-        </CardContent>
-      </Card>
-
-      {/* スナックバー */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+        {/* スナックバー */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={handleSnackbarClose}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert 
+            onClose={handleSnackbarClose} 
+            severity={snackbar.severity} 
+            sx={{ 
+              width: '100%',
+              borderRadius: 2,
+              '& .MuiAlert-icon': {
+                fontSize: '1.5rem',
+              },
+            }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </Box>
+    </Container>
   );
 };
 
