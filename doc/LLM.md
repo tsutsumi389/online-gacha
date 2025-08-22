@@ -3,9 +3,10 @@
 ## プロジェクト概要
 
 ### システム構成
-- **フロントエンド**: React 18 + Material-UI + Framer Motion
-- **バックエンド**: Node.js + Fastify + JWT認証
+- **フロントエンド**: React 18 + Material-UI + Framer Motion + Swiper.js
+- **バックエンド**: Node.js + Fastify + JWT認証 + MinIO
 - **データベース**: PostgreSQL 16
+- **ストレージ**: MinIO (S3互換オブジェクトストレージ)
 - **開発環境**: Docker + Docker Compose
 
 ### アーキテクチャ
@@ -23,7 +24,8 @@ web/              - Node.js バックエンド
 │   ├── models/        - データベースモデル
 │   ├── middleware/    - 認証ミドルウェア
 │   ├── schemas/       - バリデーションスキーマ
-│   └── config/        - データベース設定
+│   ├── config/        - データベース設定
+│   └── utils/         - MinIO設定、ヘルパー関数
 ├── migrations/    - データベーススキーマ
 └── seeds/         - 初期データ
 
@@ -78,6 +80,21 @@ doc/              - ドキュメント
 - item_id (Foreign Key to gacha_items)
 - created_at
 ```
+
+#### gacha_images テーブル
+```sql
+- id (Primary Key)
+- gacha_id (Foreign Key to gachas) - CASCADE DELETE
+- image_url (VARCHAR(500)) - MinIOオブジェクトURL
+- display_order (INTEGER, DEFAULT 0) - 表示順序
+- is_main (BOOLEAN, DEFAULT false) - メイン画像フラグ
+- created_at, updated_at
+```
+**※ 特徴**: 
+- 1つのガチャに複数画像を関連付け可能
+- display_orderによる表示順序制御
+- is_mainフラグによるメイン画像指定
+- MinIOオブジェクトストレージとの連携
 
 ## 認証システム
 
@@ -171,7 +188,7 @@ POST /logout      - ログアウト
 
 ### ガチャ API (/api/gachas)
 ```
-GET /             - 公開ガチャ一覧
+GET /             - 公開ガチャ一覧（画像配列付き）
 GET /:id          - ガチャ詳細
 POST /:id/draw    - ガチャ実行
 
@@ -182,6 +199,13 @@ GET /my/:id       - 自分のガチャ詳細
 PUT /my/:id       - ガチャ更新
 DELETE /my/:id    - ガチャ削除
 PUT /my/:id/toggle-public - 公開状態切り替え
+
+# ガチャ画像管理 API (要認証)
+GET /my/:id/images           - ガチャ画像一覧取得
+POST /my/:id/images          - ガチャ画像アップロード
+DELETE /my/:id/images/:imageId - ガチャ画像削除
+PUT /my/:id/images/:imageId/main - メイン画像設定
+PUT /my/:id/images/order     - 画像表示順序更新
 ```
 
 ## フロントエンドコンポーネント・URL構造
@@ -192,10 +216,11 @@ App.js                - メインアプリケーション、ルーティング�
                       - URL分離実装: React Router によるパラメータベースルーティング
 LoginForm.js          - ログインフォーム（API統合済み）
 RegisterForm.js       - 新規登録フォーム（API統合済み）
-UserGachaList.js      - 公開ガチャ一覧 (URL: /gacha)
+UserGachaList.js      - 公開ガチャ一覧 (URL: /gacha)（マルチ画像スライド表示対応）
 UserGachaDetail.js    - ガチャ詳細・実行画面 (URL: /gacha/:id)
 MyGachaList.js        - マイガチャ一覧 (URL: /my-gacha)（完全実装済み）
 AdminGachaEdit.js     - ガチャ編集・新規作成 (URL: /my-gacha/new, /my-gacha/edit/:id)
+                      - ガチャ画像管理機能（アップロード、削除、順序変更、メイン画像設定）
 GachaPerformance.js   - ガチャ実行演出
 ```
 
@@ -287,6 +312,7 @@ docker-compose ps
 フロントエンド: http://localhost:3000
 バックエンド: http://localhost:8080
 データベース: localhost:5432
+MinIO: http://localhost:9000 (Admin UI: http://localhost:9001)
 ```
 
 ### データベース初期化
@@ -435,6 +461,53 @@ curl -b cookies.txt -c cookies.txt \
 ## 変更履歴
 
 ## 変更履歴
+
+### 2025年8月22日 - ガチャ画像管理システム実装
+- **ストレージシステム追加**:
+  - MinIO S3互換オブジェクトストレージ導入
+  - Docker Compose環境への MinIO 統合
+  - ガチャ画像専用フォルダ構造: `users/{userId}/gachas/{gachaId}/`
+
+- **データベース拡張**:
+  - マイグレーション実行: `006_add_gacha_images.sql`
+  - `gacha_images` テーブル追加（画像URL、表示順序、メイン画像フラグ）
+  - 外部キー制約とCASCADE DELETE設定
+
+- **バックエンド実装**:
+  - `utils/minio.js`: MinIO クライアント設定とヘルパー関数
+  - `models/Gacha.js`: ガチャ画像管理メソッド実装
+    - `getGachaImages()`: 画像一覧取得
+    - `addGachaImage()`: 画像追加
+    - `deleteGachaImage()`: 画像削除とMinIOオブジェクト削除
+    - `setMainImage()`: メイン画像設定
+    - `updateImageOrder()`: 表示順序更新
+    - `findActiveWithFilters()`: 画像配列付きガチャ一覧取得
+  - `routes/admin.js`: ガチャ画像CRUD API エンドポイント実装
+    - マルチパートファイルアップロード対応
+    - 所有者ベースアクセス制御
+
+- **フロントエンド実装**:
+  - `AdminGachaEdit.js`: ガチャ画像管理UI実装
+    - ドラッグ&ドロップファイルアップロード
+    - 画像グリッド表示、削除機能
+    - メイン画像設定、表示順序変更
+  - `UserGachaList.js`: マルチ画像スライド表示対応
+    - Swiper.js による画像スライダー実装
+    - 複数画像時の自動スライド表示（3秒間隔、ループ再生）
+    - 単一画像時の静的表示
+  - `utils/api.js`: ガチャ画像API関数実装
+
+- **技術仕様**:
+  - ファイル形式: JPEG, PNG, GIF対応
+  - ファイルサイズ制限: 10MB
+  - 画像最適化: 自動リサイズ（最大1200px）
+  - セキュリティ: 所有者のみアクセス可能、ファイル形式検証
+
+- **UI/UX改善**:
+  - Material-UI + Swiper.js による滑らかなスライド表示
+  - ナビゲーション、ページネーション表示
+  - レスポンシブ対応（モバイル・デスクトップ）
+  - 画像なし時のフォールバック表示
 
 ### 2025年8月21日 - URL構造分離実装
 - **フロントエンド改修**:
