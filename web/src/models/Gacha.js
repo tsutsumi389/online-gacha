@@ -51,11 +51,13 @@ class Gacha {
           g.updated_at,
           u.name as creator_name,
           COUNT(DISTINCT gi.id) as item_count,
-          COUNT(DISTINCT gr.id) as play_count
+          COUNT(DISTINCT gr.id) as play_count,
+          main_img.image_url as main_image_url
         FROM gachas g
         LEFT JOIN users u ON g.user_id = u.id
         LEFT JOIN gacha_items gi ON g.id = gi.gacha_id
         LEFT JOIN gacha_results gr ON g.id = gr.gacha_id
+        LEFT JOIN gacha_images main_img ON g.id = main_img.gacha_id AND main_img.is_main = true
         WHERE g.is_public = true
       `;
 
@@ -69,7 +71,7 @@ class Gacha {
         params.push(`%${search}%`);
       }
 
-      query += ` GROUP BY g.id, u.name`;
+      query += ` GROUP BY g.id, u.name, main_img.image_url`;
 
       // ソート条件を追加
       const allowedSortColumns = ['created_at', 'name', 'price', 'play_count'];
@@ -191,11 +193,13 @@ class Gacha {
           g.created_at,
           g.updated_at,
           COUNT(DISTINCT gi.id) as item_count,
-          0 as play_count
+          0 as play_count,
+          main_img.image_url as main_image_url
         FROM gachas g
         LEFT JOIN gacha_items gi ON g.id = gi.gacha_id
+        LEFT JOIN gacha_images main_img ON g.id = main_img.gacha_id AND main_img.is_main = true
         ${whereClause}
-        GROUP BY g.id, g.name, g.description, g.price, g.is_public, g.created_at, g.updated_at
+        GROUP BY g.id, g.name, g.description, g.price, g.is_public, g.created_at, g.updated_at, main_img.image_url
         ORDER BY g.${sortBy} ${sortOrder.toUpperCase()}
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `;
