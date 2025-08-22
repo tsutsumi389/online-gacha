@@ -414,6 +414,7 @@ class Gacha {
       ];
 
       const result = await database.query(query, values);
+      
       return result.rows[0];
     } catch (error) {
       console.error('Error in createItemForUser:', error);
@@ -536,7 +537,10 @@ class Gacha {
         throw new Error('Gacha not found or access denied');
       }
 
-      const { name, description, stock = 0, imageUrl, isPublic = true } = itemData;
+      const { name, description, stock = 0, imageUrl, image_url, isPublic = true } = itemData;
+      
+      // image_urlフィールドを優先的に使用（admin.jsからの変換済みデータ）
+      const finalImageUrl = image_url || imageUrl || null;
       
       const query = `
         INSERT INTO gacha_items (gacha_id, name, description, image_url, stock, is_public, created_at, updated_at)
@@ -548,7 +552,7 @@ class Gacha {
         gachaId,
         name,
         description,
-        imageUrl || null,
+        finalImageUrl,
         stock,
         isPublic
       ]);
