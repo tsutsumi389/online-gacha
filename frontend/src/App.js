@@ -7,6 +7,7 @@ import AdminGachaManage from './AdminGachaManage';
 import AdminGachaEdit from './AdminGachaEdit';
 import UserGachaList from './UserGachaList';
 import UserGachaDetail from './UserGachaDetail';
+import UserProfile from './UserProfile';
 import { authAPI } from './utils/api';
 
 function App() {
@@ -130,6 +131,9 @@ function App() {
               <Button color="inherit" onClick={() => navigate('/my-gacha')}>
                 マイガチャ管理
               </Button>
+              <Button color="inherit" onClick={() => navigate('/profile')}>
+                プロフィール
+              </Button>
               <Button color="inherit" onClick={handleLogout}>
                 ログアウト ({user?.name})
               </Button>
@@ -204,6 +208,11 @@ function App() {
         <Route path="/my-gacha/edit/:id" element={
           <PrivateRoute>
             <GachaEditWrapper />
+          </PrivateRoute>
+        } />
+        <Route path="/profile" element={
+          <PrivateRoute>
+            <UserProfile />
           </PrivateRoute>
         } />
 
