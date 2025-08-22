@@ -6,6 +6,7 @@ services:
       - "8080:8080"
     depends_on:
       - db
+      - minio
     env_file:
       - .env
     volumes:
@@ -28,5 +29,38 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+  
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio_user
+      MINIO_ROOT_PASSWORD: minio_password
+    ports:
+      - "9000:9000"  # MinIO API
+      - "9001:9001"  # MinIO Console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set myminio http://minio:9000 minio_user minio_password;
+      mc mb myminio/gacha-images;
+      mc anonymous set download myminio/gacha-images;
+      echo 'MinIO初期化完了';
+      "
+    restart: "no"
+
 volumes:
   db_data:
+  minio_data:
