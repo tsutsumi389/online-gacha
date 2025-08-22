@@ -31,6 +31,13 @@
   - 価格（必須、1以上の整数）
   - 公開/非公開切替
   - 表示期間（開始日・終了日、任意）
+- **ガチャ画像管理セクション（新規追加）**
+  - ガチャ画像一覧表示（複数画像対応）
+  - メイン画像の設定（最初の画像を自動でメイン画像に設定）
+  - 画像の並び替え機能（ドラッグ&ドロップ）
+  - 画像アップロード（複数ファイル同時アップロード対応）
+  - 画像削除機能
+  - 画像プレビュー表示
 - アイテム管理セクション（ガチャ作成後に表示）
   - アイテム一覧テーブル
   - アイテム名、在庫数、公開状態、画像
@@ -102,29 +109,37 @@
 - ✅ PUT /api/admin/gachas/:gachaId/items/:itemId ... アイテム編集
 - ✅ DELETE /api/admin/gachas/:gachaId/items/:itemId ... アイテム削除
 
-### 5.2 画像管理エンドポイント（新規追加予定）
-- ❌ POST /api/admin/images/upload ... 画像ファイルアップロード（MinIOへ）
-- ❌ GET /api/admin/images ... ユーザーの画像一覧取得
-- ❌ DELETE /api/admin/images/:objectKey ... 画像削除（MinIOから）
+### 5.2 ガチャ画像管理エンドポイント（新規追加）
+- 🔄 POST /api/admin/gachas/:id/images/upload ... ガチャ画像アップロード（MinIOへ）
+- 🔄 GET /api/admin/gachas/:id/images ... ガチャの画像一覧取得
+- 🔄 PUT /api/admin/gachas/:id/images/order ... ガチャ画像の並び順変更
+- 🔄 DELETE /api/admin/gachas/:id/images/:imageId ... ガチャ画像削除（MinIOから）
+- 🔄 PATCH /api/admin/gachas/:id/images/:imageId/main ... メイン画像設定
+
+### 5.3 アイテム画像管理エンドポイント（既存）
+- ✅ POST /api/admin/images/upload ... 画像ファイルアップロード（MinIOへ）
+- ✅ GET /api/admin/images ... ユーザーの画像一覧取得
+- ✅ DELETE /api/admin/images/:objectKey ... 画像削除（MinIOから）
 - ❌ GET /api/admin/images/:objectKey/usage ... 画像使用状況確認
 
-### 5.3 MinIO統合仕様
+### 5.4 MinIO統合仕様
 - **アップロード処理**: multipart/form-dataでファイル受信
-- **オブジェクトキー形式**: `users/{user_id}/items/{timestamp}_{original_filename}`
+- **アイテム画像オブジェクトキー**: `users/{user_id}/items/{timestamp}_{original_filename}`
+- **ガチャ画像オブジェクトキー**: `users/{user_id}/gachas/{gacha_id}/{timestamp}_{original_filename}`
 - **画像URL生成**: `http://localhost:9000/gacha-images/{object_key}`
 - **メタデータ保存**: ファイル名、サイズ、MIMEタイプをMinIOオブジェクトメタデータに保存
-- **重複回避**: タイムスタンプ + ユーザーID組み合わせによるユニークキー生成
+- **重複回避**: タイムスタンプ + ユーザーID + ガチャID組み合わせによるユニークキー生成
 
-### 5.4 認証・セキュリティ
+### 5.5 認証・セキュリティ
 - ✅ JWT認証による本人確認
 - ✅ ガチャオーナーシップ検証（本人のガチャのみ管理可能）
 - ✅ SQLインジェクション対策（パラメータ化クエリ）
 - ✅ 入力値検証（Joi）
-- ❌ 画像ファイル検証（MIMEタイプ、マジックバイト確認）
-- ❌ ファイルサイズ制限（アップロード時）
+- ✅ 画像ファイル検証（MIMEタイプ、マジックバイト確認）
+- ✅ ファイルサイズ制限（アップロード時）
 - ❌ 画像アクセス権限制御（MinIO側設定）
 
-### 5.5 レスポンス形式
+### 5.6 レスポンス形式
 ```json
 // ガチャ一覧取得レスポンス
 {
@@ -135,6 +150,7 @@
       "description": "レアなアイテムが当たるガチャです",
       "price": 100,
       "is_public": true,
+      "main_image_url": "http://localhost:9000/gacha-images/users/1/gachas/1/1704067200000_gacha_main.jpg",
       "created_at": "2024-01-01T00:00:00.000Z",
       "updated_at": "2024-01-01T00:00:00.000Z"
     }
@@ -157,6 +173,36 @@
       "stock": 100,
       "image_url": "http://localhost:9000/gacha-images/users/123/items/1640995200000_diamond.png",
       "is_public": true
+    }
+  ]
+}
+
+// ガチャ画像一覧取得レスポンス（新規追加）
+{
+  "images": [
+    {
+      "id": 1,
+      "gacha_id": 1,
+      "image_url": "http://localhost:9000/gacha-images/users/123/gachas/1/1640995200000_main.jpg",
+      "object_key": "users/123/gachas/1/1640995200000_main.jpg",
+      "filename": "main.jpg",
+      "size": 3145728,
+      "mime_type": "image/jpeg",
+      "display_order": 1,
+      "is_main": true,
+      "created_at": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "gacha_id": 1,
+      "image_url": "http://localhost:9000/gacha-images/users/123/gachas/1/1640995260000_sub1.jpg",
+      "object_key": "users/123/gachas/1/1640995260000_sub1.jpg",
+      "filename": "sub1.jpg",
+      "size": 2097152,
+      "mime_type": "image/jpeg",
+      "display_order": 2,
+      "is_main": false,
+      "created_at": "2024-01-01T00:01:00.000Z"
     }
   ]
 }
@@ -198,10 +244,14 @@
 - ✅ エラーハンドリング: 統一されたエラーレスポンス形式
 - ✅ セキュリティ: パラメータ化クエリ、オーナーシップ検証
 
-### 6.2 実装待ち技術スタック
-- 🔄 フロントエンド: React 18 + Material-UI + Framer Motion
-- 🔄 Cookie認証: HTTPOnly Cookie（現在はHeaderベース）
-- ❌ MinIO統合: MinIO Client（minio JavaScript library）
+### 6.2 実装済み技術スタック
+- ✅ バックエンド: Node.js + Fastify + JWT認証
+- ✅ データベース: PostgreSQL（完全スキーマ対応）
+- ✅ バリデーション: Joi（バックエンド）
+- ✅ 認証: JWT + ミドルウェア認証
+- ✅ エラーハンドリング: 統一されたエラーレスポンス形式
+- ✅ セキュリティ: パラメータ化クエリ、オーナーシップ検証
+- ✅ MinIO統合: MinIO Client（minio JavaScript library）
 - ❌ ファイルアップロード: Fastify Multipart Plugin
 - ❌ 画像処理: Sharp（リサイズ・最適化、将来対応）
 

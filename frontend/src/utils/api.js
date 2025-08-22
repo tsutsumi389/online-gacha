@@ -223,6 +223,42 @@ export const myGachaAPI = {
       method: 'DELETE',
     });
   },
+
+  // ガチャ画像管理API
+  // ガチャ画像一覧取得
+  getGachaImages: async (gachaId) => {
+    return apiRequest(`/api/my/gachas/${gachaId}/images`);
+  },
+
+  // ガチャ画像アップロード
+  uploadGachaImage: async (gachaId, formData) => {
+    return apiRequest(`/api/my/gachas/${gachaId}/images/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
+  // ガチャ画像削除
+  deleteGachaImage: async (gachaId, imageId) => {
+    return apiRequest(`/api/my/gachas/${gachaId}/images/${imageId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // ガチャ画像の並び順変更
+  updateGachaImageOrder: async (gachaId, imageOrders) => {
+    return apiRequest(`/api/my/gachas/${gachaId}/images/order`, {
+      method: 'PUT',
+      body: JSON.stringify({ imageOrders }),
+    });
+  },
+
+  // メイン画像設定
+  setMainGachaImage: async (gachaId, imageId) => {
+    return apiRequest(`/api/my/gachas/${gachaId}/images/${imageId}/main`, {
+      method: 'PATCH',
+    });
+  },
 };
 
 // 画像アップロード関連のAPI

@@ -688,6 +688,246 @@ class Gacha {
       throw error;
     }
   }
+
+  // ガチャ画像管理メソッド群
+
+  // ガチャ画像一覧取得
+  static async getGachaImages(gachaId, userId) {
+    try {
+      // ガチャの所有者確認（既にルート側で確認済みの場合はスキップ可能）
+      // この段階ではガチャの存在は確認済みなので、画像クエリのみ実行
+      const query = `
+        SELECT 
+          id,
+          gacha_id,
+          image_url,
+          object_key,
+          filename,
+          size,
+          mime_type,
+          display_order,
+          is_main,
+          created_at,
+          updated_at
+        FROM gacha_images 
+        WHERE gacha_id = $1 
+        ORDER BY display_order ASC, created_at ASC
+      `;
+
+      const result = await database.query(query, [gachaId]);
+      return result.rows;
+    } catch (error) {
+      console.error('Error in getGachaImages:', error);
+      throw error;
+    }
+  }
+
+  // ガチャ画像追加
+  static async addGachaImage(gachaId, imageData, userId) {
+    try {
+      // ガチャの所有者確認
+      const gacha = await this.findByIdForUser(gachaId, userId);
+      if (!gacha) {
+        throw new Error('Gacha not found or access denied');
+      }
+
+      // 現在の最大表示順序を取得
+      const maxOrderQuery = `
+        SELECT COALESCE(MAX(display_order), 0) as max_order 
+        FROM gacha_images 
+        WHERE gacha_id = $1
+      `;
+      const maxOrderResult = await database.query(maxOrderQuery, [gachaId]);
+      const nextOrder = maxOrderResult.rows[0].max_order + 1;
+
+      // 画像が1枚目の場合は自動的にメイン画像に設定
+      const isFirstImage = nextOrder === 1;
+
+      const query = `
+        INSERT INTO gacha_images (
+          gacha_id, image_url, object_key, filename, size, 
+          mime_type, display_order, is_main
+        ) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *
+      `;
+
+      const values = [
+        gachaId,
+        imageData.image_url,
+        imageData.object_key,
+        imageData.filename,
+        imageData.size,
+        imageData.mime_type,
+        nextOrder,
+        isFirstImage
+      ];
+
+      const result = await database.query(query, values);
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error in addGachaImage:', error);
+      throw error;
+    }
+  }
+
+  // ガチャ画像削除
+  static async deleteGachaImage(gachaId, imageId, userId) {
+    try {
+      // ガチャの所有者確認
+      const gacha = await this.findByIdForUser(gachaId, userId);
+      if (!gacha) {
+        throw new Error('Gacha not found or access denied');
+      }
+
+      // 画像がそのガチャに属するかも確認
+      const imageCheckQuery = `
+        SELECT id, display_order, is_main FROM gacha_images
+        WHERE id = $1 AND gacha_id = $2
+      `;
+      const imageCheck = await database.query(imageCheckQuery, [imageId, gachaId]);
+      if (imageCheck.rows.length === 0) {
+        throw new Error('Image not found in this gacha');
+      }
+
+      const deletedImage = imageCheck.rows[0];
+
+      // 画像削除
+      const deleteQuery = `
+        DELETE FROM gacha_images
+        WHERE id = $1 AND gacha_id = $2
+        RETURNING *
+      `;
+      const deleteResult = await database.query(deleteQuery, [imageId, gachaId]);
+
+      // 削除した画像より後の画像の表示順序を1つずつ前に移動
+      const updateOrderQuery = `
+        UPDATE gacha_images 
+        SET display_order = display_order - 1 
+        WHERE gacha_id = $1 AND display_order > $2
+      `;
+      await database.query(updateOrderQuery, [gachaId, deletedImage.display_order]);
+
+      // メイン画像が削除された場合、最初の画像を新しいメイン画像に設定
+      if (deletedImage.is_main) {
+        const newMainQuery = `
+          UPDATE gacha_images 
+          SET is_main = true 
+          WHERE gacha_id = $1 AND display_order = 1
+        `;
+        await database.query(newMainQuery, [gachaId]);
+      }
+
+      return deleteResult.rows[0];
+    } catch (error) {
+      console.error('Error in deleteGachaImage:', error);
+      throw error;
+    }
+  }
+
+  // ガチャ画像の並び順変更
+  static async updateGachaImageOrder(gachaId, imageOrders, userId) {
+    try {
+      // ガチャの所有者確認
+      const gacha = await this.findByIdForUser(gachaId, userId);
+      if (!gacha) {
+        throw new Error('Gacha not found or access denied');
+      }
+
+      // トランザクション開始
+      await database.query('BEGIN');
+
+      try {
+        // 各画像の表示順序を更新
+        for (const item of imageOrders) {
+          const updateQuery = `
+            UPDATE gacha_images 
+            SET display_order = $1 
+            WHERE id = $2 AND gacha_id = $3
+          `;
+          await database.query(updateQuery, [item.display_order, item.id, gachaId]);
+        }
+
+        // 最初の画像をメイン画像に設定
+        const resetMainQuery = `
+          UPDATE gacha_images 
+          SET is_main = false 
+          WHERE gacha_id = $1
+        `;
+        await database.query(resetMainQuery, [gachaId]);
+
+        const setMainQuery = `
+          UPDATE gacha_images 
+          SET is_main = true 
+          WHERE gacha_id = $1 AND display_order = 1
+        `;
+        await database.query(setMainQuery, [gachaId]);
+
+        await database.query('COMMIT');
+
+        // 更新後の画像一覧を返す
+        return await this.getGachaImages(gachaId, userId);
+      } catch (error) {
+        await database.query('ROLLBACK');
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error in updateGachaImageOrder:', error);
+      throw error;
+    }
+  }
+
+  // メイン画像設定
+  static async setMainGachaImage(gachaId, imageId, userId) {
+    try {
+      // ガチャの所有者確認
+      const gacha = await this.findByIdForUser(gachaId, userId);
+      if (!gacha) {
+        throw new Error('Gacha not found or access denied');
+      }
+
+      // 画像がそのガチャに属するかも確認
+      const imageCheckQuery = `
+        SELECT id FROM gacha_images
+        WHERE id = $1 AND gacha_id = $2
+      `;
+      const imageCheck = await database.query(imageCheckQuery, [imageId, gachaId]);
+      if (imageCheck.rows.length === 0) {
+        throw new Error('Image not found in this gacha');
+      }
+
+      // トランザクション開始
+      await database.query('BEGIN');
+
+      try {
+        // すべての画像のメインフラグをリセット
+        const resetQuery = `
+          UPDATE gacha_images 
+          SET is_main = false 
+          WHERE gacha_id = $1
+        `;
+        await database.query(resetQuery, [gachaId]);
+
+        // 指定した画像をメイン画像に設定
+        const setMainQuery = `
+          UPDATE gacha_images 
+          SET is_main = true 
+          WHERE id = $1 AND gacha_id = $2
+          RETURNING *
+        `;
+        const result = await database.query(setMainQuery, [imageId, gachaId]);
+
+        await database.query('COMMIT');
+        return result.rows[0];
+      } catch (error) {
+        await database.query('ROLLBACK');
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error in setMainGachaImage:', error);
+      throw error;
+    }
+  }
 }
 
 export default Gacha;

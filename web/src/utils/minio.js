@@ -148,11 +148,18 @@ async function listFiles(prefix = '') {
   }
 }
 
-// オブジェクトキー生成
+// オブジェクトキー生成（アイテム用）
 function generateObjectKey(userId, filename) {
   const timestamp = Date.now();
   const cleanFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
   return `users/${userId}/items/${timestamp}_${cleanFilename}`;
+}
+
+// オブジェクトキー生成（ガチャ画像用）
+function generateGachaImageObjectKey(userId, gachaId, filename) {
+  const timestamp = Date.now();
+  const cleanFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
+  return `users/${userId}/gachas/${gachaId}/${timestamp}_${cleanFilename}`;
 }
 
 // ファイル検証
@@ -178,6 +185,7 @@ export {
   deleteFile,
   listFiles,
   generateObjectKey,
+  generateGachaImageObjectKey,
   validateFile,
   ensureBucketExists
 };
