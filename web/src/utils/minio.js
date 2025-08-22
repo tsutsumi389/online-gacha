@@ -84,8 +84,19 @@ async function deleteFile(objectKey) {
 // ファイル一覧取得
 async function listFiles(prefix = '') {
   try {
+    // ユーザーIDが単独で渡された場合は適切なプレフィックス形式に変換
+    let searchPrefix = prefix;
+    
+    // prefixを文字列に変換して型安全にする
+    const prefixStr = String(prefix);
+    
+    if (prefixStr && !prefixStr.includes('/')) {
+      // ユーザーIDのみの場合はusers/{userId}/items/形式に変換
+      searchPrefix = `users/${prefixStr}/items/`;
+    }
+    
     const objectsList = [];
-    const stream = minioClient.listObjects(BUCKET_NAME, prefix, true);
+    const stream = minioClient.listObjects(BUCKET_NAME, searchPrefix, true);
     
     // まずオブジェクト一覧を取得
     const objects = await new Promise((resolve, reject) => {
@@ -130,8 +141,6 @@ async function listFiles(prefix = '') {
       })
     );
 
-    return objectsWithMetadata;
-      
     return objectsWithMetadata;
   } catch (error) {
     console.error('Error listing files:', error);
