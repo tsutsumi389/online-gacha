@@ -57,8 +57,11 @@ fastify.register(authRoutes, { prefix: '/api/auth' });
 // ガチャ関連のルート
 fastify.register(gachaRoutes, { prefix: '/api/gachas' });
 
-// ユーザーガチャ管理のルート
+// ユーザーガチャ管理のルート（一般ユーザー用）
 fastify.register(userGachaRoutes, { prefix: '/api/my' });
+
+// 管理者用ガチャ管理のルート
+fastify.register(userGachaRoutes, { prefix: '/api/admin' });
 
 // 画像管理のルート
 fastify.register(imageRoutes, { prefix: '/api/admin/images' });

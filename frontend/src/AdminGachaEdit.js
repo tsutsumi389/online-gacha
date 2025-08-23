@@ -8,7 +8,7 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import ImageIcon from '@mui/icons-material/Image';
-import { myGachaAPI } from './utils/api';
+import { myGachaAPI, adminGachaAPI } from './utils/api';
 import ImageUpload from './components/ImageUpload';
 import ImageManager from './components/ImageManager';
 
@@ -91,7 +91,7 @@ export default function AdminGachaEdit() {
     try {
       setGachaImagesLoading(true);
       setGachaImageError('');
-      const response = await myGachaAPI.getGachaImages(currentGachaId);
+      const response = await adminGachaAPI.getGachaImages(currentGachaId);
       setGachaImages(response.images || []);
     } catch (err) {
       // 404エラー（ガチャが見つからない、または画像が存在しない）の場合は空の配列を設定
@@ -131,10 +131,15 @@ export default function AdminGachaEdit() {
       setGachaImagesLoading(true);
       setGachaImageError('');
       
-      const formData = new FormData();
-      formData.append('image', file);
-
-      const response = await myGachaAPI.uploadGachaImage(currentGachaId, formData);
+      console.log('アップロード開始:', { currentGachaId, file, gachaImages });
+      
+      // 新しいAPIを使用（fileを直接渡す）
+      const response = await adminGachaAPI.uploadGachaImage(currentGachaId, file, {
+        displayOrder: gachaImages.length + 1,
+        isMain: gachaImages.length === 0 // 最初の画像をメインにする
+      });
+      
+      console.log('アップロード結果:', response);
       
       if (response.success) {
         await fetchGachaImages(); // 画像一覧を再取得
@@ -156,7 +161,7 @@ export default function AdminGachaEdit() {
       setGachaImagesLoading(true);
       setGachaImageError('');
       
-      await myGachaAPI.deleteGachaImage(currentGachaId, imageId);
+      await adminGachaAPI.deleteGachaImage(currentGachaId, imageId);
       await fetchGachaImages(); // 画像一覧を再取得
       setSuccessMessage('画像が削除されました');
       setTimeout(() => setSuccessMessage(''), 3000);
@@ -183,8 +188,10 @@ export default function AdminGachaEdit() {
 
       setGachaImages(reorderedImages); // 先にUIを更新
 
-      await myGachaAPI.updateGachaImageOrder(currentGachaId, imageOrders);
-      await fetchGachaImages(); // 最新データを再取得
+      // TODO: 管理者用APIに画像並び順変更機能を追加
+      // await adminGachaAPI.updateGachaImageOrder(currentGachaId, imageOrders);
+      // await fetchGachaImages(); // 最新データを再取得
+      console.log('画像並び順変更機能は未実装です');
     } catch (err) {
       setGachaImageError('画像の並び順変更に失敗しました: ' + err.message);
       await fetchGachaImages(); // エラー時は元に戻す
@@ -197,9 +204,11 @@ export default function AdminGachaEdit() {
       setGachaImagesLoading(true);
       setGachaImageError('');
       
-      await myGachaAPI.setMainGachaImage(currentGachaId, imageId);
-      await fetchGachaImages(); // 画像一覧を再取得
-      setSuccessMessage('メイン画像が設定されました');
+      // TODO: 管理者用APIにメイン画像設定機能を追加
+      // await adminGachaAPI.setMainGachaImage(currentGachaId, imageId);
+      // await fetchGachaImages(); // 画像一覧を再取得
+      console.log('メイン画像設定機能は未実装です');
+      setSuccessMessage('メイン画像設定機能は未実装です');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       setGachaImageError('メイン画像の設定に失敗しました: ' + err.message);
