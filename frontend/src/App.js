@@ -21,18 +21,12 @@ function App() {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        // ローカルストレージから認証情報を確認
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          // サーバーでトークンの有効性を確認
-          const currentUser = await authAPI.getCurrentUser();
-          setIsAuthenticated(true);
-          setUser(currentUser);
-        }
+        // サーバーにセッションの有効性を確認
+        const response = await authAPI.getCurrentUser();
+        setIsAuthenticated(true);
+        setUser(response.user);
       } catch (error) {
-        console.error('認証状態の復元に失敗:', error);
-        // 無効なトークンの場合はローカルストレージをクリア
-        localStorage.removeItem('user');
+        // トークンが無効、または存在しない場合
         setIsAuthenticated(false);
         setUser(null);
       } finally {
@@ -46,16 +40,12 @@ function App() {
   const handleLogin = (userData) => {
     setIsAuthenticated(true);
     setUser(userData);
-    // ローカルストレージに保存
-    localStorage.setItem('user', JSON.stringify(userData));
     navigate('/'); // ログイン後はホームページにリダイレクト
   };
 
   const handleRegister = (userData) => {
     setIsAuthenticated(true);
     setUser(userData);
-    // ローカルストレージに保存
-    localStorage.setItem('user', JSON.stringify(userData));
     navigate('/'); // 登録後はホームページにリダイレクト
   };
 
@@ -65,8 +55,6 @@ function App() {
     } catch (error) {
       console.error('ログアウト処理でエラー:', error);
     }
-    // ローカルストレージをクリア
-    localStorage.removeItem('user');
     setIsAuthenticated(false);
     setUser(null);
     navigate('/login');
