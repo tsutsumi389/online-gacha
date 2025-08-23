@@ -92,7 +92,40 @@ class Gacha {
       params.push(offset);
 
       const result = await database.query(query, params);
-      return result.rows;
+      
+      // 各ガチャにメイン画像URLを追加
+      const gachasWithImages = await Promise.all(result.rows.map(async (gacha) => {
+        let main_image_url = null;
+        
+        if (gacha.main_image_base_key && gacha.main_image_status === 'completed') {
+          // メイン画像のバリアントを取得
+          const variantQuery = `
+            SELECT object_key, image_url, size_type, format_type
+            FROM image_variants iv
+            JOIN gacha_images gi ON iv.gacha_image_id = gi.id
+            WHERE gi.base_object_key = $1 AND gi.is_main = true
+            ORDER BY 
+              CASE 
+                WHEN iv.size_type = 'desktop' AND iv.format_type = 'webp' THEN 1
+                WHEN iv.size_type = 'desktop' AND iv.format_type = 'jpeg' THEN 2
+                ELSE 3
+              END
+            LIMIT 1
+          `;
+          
+          const variantResult = await database.query(variantQuery, [gacha.main_image_base_key]);
+          if (variantResult.rows.length > 0) {
+            main_image_url = variantResult.rows[0].image_url;
+          }
+        }
+        
+        return {
+          ...gacha,
+          main_image_url
+        };
+      }));
+      
+      return gachasWithImages;
     } catch (error) {
       console.error('Error in findActiveWithFilters:', error);
       throw error;
@@ -121,17 +154,53 @@ class Gacha {
           g.price,
           g.created_at,
           u.name as creator_name,
-          COUNT(gr.id) as play_count
+          COUNT(gr.id) as play_count,
+          main_img.base_object_key as main_image_base_key,
+          main_img.processing_status as main_image_status
         FROM gachas g
         LEFT JOIN users u ON g.user_id = u.id
         LEFT JOIN gacha_results gr ON g.id = gr.gacha_id
+        LEFT JOIN gacha_images main_img ON g.id = main_img.gacha_id AND main_img.is_main = true
         WHERE g.is_public = true
-        GROUP BY g.id, u.name
+        GROUP BY g.id, u.name, main_img.base_object_key, main_img.processing_status
         ORDER BY play_count DESC
         LIMIT $1
       `;
       const result = await database.query(query, [limit]);
-      return result.rows;
+      
+      // 各ガチャにメイン画像URLを追加
+      const gachasWithImages = await Promise.all(result.rows.map(async (gacha) => {
+        let main_image_url = null;
+        
+        if (gacha.main_image_base_key && gacha.main_image_status === 'completed') {
+          // メイン画像のバリアントを取得
+          const variantQuery = `
+            SELECT object_key, image_url, size_type, format_type
+            FROM image_variants iv
+            JOIN gacha_images gi ON iv.gacha_image_id = gi.id
+            WHERE gi.base_object_key = $1 AND gi.is_main = true
+            ORDER BY 
+              CASE 
+                WHEN iv.size_type = 'desktop' AND iv.format_type = 'webp' THEN 1
+                WHEN iv.size_type = 'desktop' AND iv.format_type = 'jpeg' THEN 2
+                ELSE 3
+              END
+            LIMIT 1
+          `;
+          
+          const variantResult = await database.query(variantQuery, [gacha.main_image_base_key]);
+          if (variantResult.rows.length > 0) {
+            main_image_url = variantResult.rows[0].image_url;
+          }
+        }
+        
+        return {
+          ...gacha,
+          main_image_url
+        };
+      }));
+      
+      return gachasWithImages;
     } catch (error) {
       console.error('Error in getPopular:', error);
       throw error;
