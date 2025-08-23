@@ -24,7 +24,7 @@
 - **作成日時**: gachas.created_at
 
 ### 4.2 商品リスト情報（gacha_itemsテーブル）
-- **商品画像**: gacha_items.image_url（VARCHAR(255), 任意）
+- **商品画像**: gacha_items.image_url（VARCHAR(255), 任意、複数サイズ対応）
 - **商品名**: gacha_items.name（VARCHAR(128), 必須）
 - **説明**: gacha_items.description（TEXT, 任意）
 - **残り数**: gacha_items.stock（INTEGER, 在庫管理用）
@@ -64,6 +64,28 @@
         "name": "ダイヤモンド",
         "description": "貴重なダイヤモンド",
         "image_url": "https://example.com/diamond.png",
+        "image_sizes": {
+          "original": {
+            "avif": "http://localhost:9000/gacha-images/users/123/items/original/avif/1640995200000_diamond.avif",
+            "webp": "http://localhost:9000/gacha-images/users/123/items/original/webp/1640995200000_diamond.webp",
+            "jpeg": "http://localhost:9000/gacha-images/users/123/items/original/jpeg/1640995200000_diamond.jpg"
+          },
+          "desktop": {
+            "avif": "http://localhost:9000/gacha-images/users/123/items/desktop/avif/1640995200000_diamond.avif",
+            "webp": "http://localhost:9000/gacha-images/users/123/items/desktop/webp/1640995200000_diamond.webp",
+            "jpeg": "http://localhost:9000/gacha-images/users/123/items/desktop/jpeg/1640995200000_diamond.jpg"
+          },
+          "mobile": {
+            "avif": "http://localhost:9000/gacha-images/users/123/items/mobile/avif/1640995200000_diamond.avif",
+            "webp": "http://localhost:9000/gacha-images/users/123/items/mobile/webp/1640995200000_diamond.webp",
+            "jpeg": "http://localhost:9000/gacha-images/users/123/items/mobile/jpeg/1640995200000_diamond.jpg"
+          },
+          "thumbnail": {
+            "avif": "http://localhost:9000/gacha-images/users/123/items/thumbnail/avif/1640995200000_diamond.avif",
+            "webp": "http://localhost:9000/gacha-images/users/123/items/thumbnail/webp/1640995200000_diamond.webp",
+            "jpeg": "http://localhost:9000/gacha-images/users/123/items/thumbnail/jpeg/1640995200000_diamond.jpg"
+          }
+        },
         "stock": 100
       },
       {
@@ -71,6 +93,28 @@
         "name": "ゴールド",
         "description": "金のインゴット",
         "image_url": "https://example.com/gold.png",
+        "image_sizes": {
+          "original": {
+            "avif": "http://localhost:9000/gacha-images/users/123/items/original/avif/1640995300000_gold.avif",
+            "webp": "http://localhost:9000/gacha-images/users/123/items/original/webp/1640995300000_gold.webp",
+            "jpeg": "http://localhost:9000/gacha-images/users/123/items/original/jpeg/1640995300000_gold.jpg"
+          },
+          "desktop": {
+            "avif": "http://localhost:9000/gacha-images/users/123/items/desktop/avif/1640995300000_gold.avif",
+            "webp": "http://localhost:9000/gacha-images/users/123/items/desktop/webp/1640995300000_gold.webp",
+            "jpeg": "http://localhost:9000/gacha-images/users/123/items/desktop/jpeg/1640995300000_gold.jpg"
+          },
+          "mobile": {
+            "avif": "http://localhost:9000/gacha-images/users/123/items/mobile/avif/1640995300000_gold.avif",
+            "webp": "http://localhost:9000/gacha-images/users/123/items/mobile/webp/1640995300000_gold.webp",
+            "jpeg": "http://localhost:9000/gacha-images/users/123/items/mobile/jpeg/1640995300000_gold.jpg"
+          },
+          "thumbnail": {
+            "avif": "http://localhost:9000/gacha-images/users/123/items/thumbnail/avif/1640995300000_gold.avif",
+            "webp": "http://localhost:9000/gacha-images/users/123/items/thumbnail/webp/1640995300000_gold.webp",
+            "jpeg": "http://localhost:9000/gacha-images/users/123/items/thumbnail/jpeg/1640995300000_gold.jpg"
+          }
+        },
         "stock": 200
       }
     ]
@@ -92,7 +136,29 @@
     "id": 1,
     "name": "ダイヤモンド",
     "description": "貴重なダイヤモンド",
-    "image_url": "https://example.com/diamond.png"
+    "image_url": "https://example.com/diamond.png",
+    "image_sizes": {
+      "original": {
+        "avif": "http://localhost:9000/gacha-images/users/123/items/original/avif/1640995200000_diamond.avif",
+        "webp": "http://localhost:9000/gacha-images/users/123/items/original/webp/1640995200000_diamond.webp",
+        "jpeg": "http://localhost:9000/gacha-images/users/123/items/original/jpeg/1640995200000_diamond.jpg"
+      },
+      "desktop": {
+        "avif": "http://localhost:9000/gacha-images/users/123/items/desktop/avif/1640995200000_diamond.avif",
+        "webp": "http://localhost:9000/gacha-images/users/123/items/desktop/webp/1640995200000_diamond.webp", 
+        "jpeg": "http://localhost:9000/gacha-images/users/123/items/desktop/jpeg/1640995200000_diamond.jpg"
+      },
+      "mobile": {
+        "avif": "http://localhost:9000/gacha-images/users/123/items/mobile/avif/1640995200000_diamond.avif",
+        "webp": "http://localhost:9000/gacha-images/users/123/items/mobile/webp/1640995200000_diamond.webp",
+        "jpeg": "http://localhost:9000/gacha-images/users/123/items/mobile/jpeg/1640995200000_diamond.jpg"
+      },
+      "thumbnail": {
+        "avif": "http://localhost:9000/gacha-images/users/123/items/thumbnail/avif/1640995200000_diamond.avif",
+        "webp": "http://localhost:9000/gacha-images/users/123/items/thumbnail/webp/1640995200000_diamond.webp",
+        "jpeg": "http://localhost:9000/gacha-images/users/123/items/thumbnail/jpeg/1640995200000_diamond.jpg"
+      }
+    }
   },
   "result_id": 123
 }
@@ -113,12 +179,12 @@
 - ✅ **認証確認**: ガチャ実行には認証必須
 
 ### 6.2 フロントエンド実装完了のUX
-- ✅ **商品画像**: サムネイル表示（fallback画像対応）
+- ✅ **商品画像**: サムネイル表示（fallback画像対応、レスポンシブ画像選択）
 - ✅ **残り数が0の商品**: グレーアウト・SOLD OUT表示
 - ✅ **10連ガチャボタン**: 在庫状況に応じた有効/無効制御
 - ✅ **引くボタン**: ローディング・多重押下防止機能
-- ✅ **ガチャ結果演出**: アニメーション付きUI
-- ✅ **レスポンシブ対応**: モバイル・デスクトップ両対応
+- ✅ **ガチャ結果演出**: アニメーション付きUI（レスポンシブ画像表示）
+- ✅ **レスポンシブ対応**: モバイル・デスクトップ両対応（最適画像自動選択）
 - ✅ **エラーハンドリング**: スナックバーによる通知
 
 ## 7. 権限制御 ✅ 実装完了
@@ -139,6 +205,7 @@
 - ✅ **アニメーション**: Framer Motion（ガチャ演出）
 - ✅ **状態管理**: React Hooks（useState, useEffect）
 - ✅ **API通信**: axios + エラーハンドリング
+- ✅ **レスポンシブ画像**: Picture要素 + srcset（AVIF/WebP/JPEG自動選択）
 
 ### 8.2 実装済み機能詳細
 - ✅ **動的データ取得**: gachaIdベースのAPI呼び出し
@@ -184,6 +251,7 @@
 - ✅ **UI/UX**: Material-UI + Framer Motionによるモダンデザイン
 - ✅ **レスポンシブ**: モバイルファースト対応
 - ✅ **エラーハンドリング**: 包括的なエラー処理
+- ✅ **画像最適化**: Sharp.js処理済み複数サイズ・フォーマット対応
 
 ### 10.3 API テスト状況
 - ✅ **ガチャ詳細取得**: 動作確認済み

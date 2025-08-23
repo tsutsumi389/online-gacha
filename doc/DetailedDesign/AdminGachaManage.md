@@ -36,6 +36,9 @@
   - メイン画像の設定（最初の画像を自動でメイン画像に設定）
   - 画像の並び替え機能（ドラッグ&ドロップ）
   - 画像アップロード（複数ファイル同時アップロード対応）
+  - Sharp.js自動処理: アップロード時に4サイズ×3フォーマット生成
+  - AVIF形式メイン: 次世代画像フォーマット（高圧縮率）
+  - WebP/JPEG fallback: ブラウザサポート確保
   - 画像削除機能
   - 画像プレビュー表示
 - アイテム管理セクション（ガチャ作成後に表示）
@@ -50,12 +53,13 @@
 - 説明（最大1000文字）
 - 在庫数（0以上の整数）
 - 画像アップロード
-  - ファイル選択ボタン（JPEG, PNG, WebP対応）
+  - ファイル選択ボタン（JPEG, PNG, WebP対応、AVIF自動変換）
   - ドラッグ&ドロップアップロード対応
-  - 画像プレビュー表示
-  - ファイルサイズ制限: 最大5MB
+  - 画像プレビュー表示（最適サイズ自動選択）
+  - ファイルサイズ制限: アップロード時最大10MB
+  - Sharp.js自動処理: 4サイズ生成（オリジナル、サムネイル、モバイル用、高解像度用）
   - 既存画像の置き換え・削除機能
-- 画像URL（MinIOオブジェクトキー、自動生成）
+- 画像URL（MinIOオブジェクトキー、複数サイズ対応、自動生成）
 - 公開/非公開切替
 - 保存/キャンセルボタン
 
@@ -110,24 +114,33 @@
 - ✅ DELETE /api/admin/gachas/:gachaId/items/:itemId ... アイテム削除
 
 ### 5.2 ガチャ画像管理エンドポイント（新規追加）
-- 🔄 POST /api/admin/gachas/:id/images/upload ... ガチャ画像アップロード（MinIOへ）
-- 🔄 GET /api/admin/gachas/:id/images ... ガチャの画像一覧取得
+- 🔄 POST /api/admin/gachas/:id/images/upload ... ガチャ画像アップロード（MinIOへ、Sharp.js処理）
+- 🔄 GET /api/admin/gachas/:id/images ... ガチャの画像一覧取得（全サイズ情報含む）
 - 🔄 PUT /api/admin/gachas/:id/images/order ... ガチャ画像の並び順変更
-- 🔄 DELETE /api/admin/gachas/:id/images/:imageId ... ガチャ画像削除（MinIOから）
+- 🔄 DELETE /api/admin/gachas/:id/images/:imageId ... ガチャ画像削除（全サイズ一括削除）
 - 🔄 PATCH /api/admin/gachas/:id/images/:imageId/main ... メイン画像設定
 
 ### 5.3 アイテム画像管理エンドポイント（既存）
-- ✅ POST /api/admin/images/upload ... 画像ファイルアップロード（MinIOへ）
-- ✅ GET /api/admin/images ... ユーザーの画像一覧取得
-- ✅ DELETE /api/admin/images/:objectKey ... 画像削除（MinIOから）
+- ✅ POST /api/admin/images/upload ... 画像ファイルアップロード（MinIOへ、Sharp.js処理）
+- ✅ GET /api/admin/images ... ユーザーの画像一覧取得（全サイズ情報含む）
+- ✅ DELETE /api/admin/images/:objectKey ... 画像削除（全サイズ一括削除）
 - ❌ GET /api/admin/images/:objectKey/usage ... 画像使用状況確認
 
 ### 5.4 MinIO統合仕様
-- **アップロード処理**: multipart/form-dataでファイル受信
-- **アイテム画像オブジェクトキー**: `users/{user_id}/items/{timestamp}_{original_filename}`
-- **ガチャ画像オブジェクトキー**: `users/{user_id}/gachas/{gacha_id}/{timestamp}_{original_filename}`
+- **アップロード処理**: multipart/form-dataでファイル受信 → Sharp.js処理
+- **画像処理フロー**:
+  1. オリジナルファイル受信（JPEG/PNG/WebP、最大10MB）
+  2. Sharp.jsによる4サイズ生成：
+     - original: 最大2048x2048px
+     - thumbnail: 150x150px
+     - mobile: 512x512px
+     - desktop: 1024x1024px
+  3. 各サイズをAVIF/WebP/JPEG形式で保存（計12ファイル）
+- **オブジェクトキー構造**:
+  - アイテム画像: `users/{user_id}/items/{size}/{format}/{timestamp}_{filename}`
+  - ガチャ画像: `users/{user_id}/gachas/{gacha_id}/{size}/{format}/{timestamp}_{filename}`
 - **画像URL生成**: `http://localhost:9000/gacha-images/{object_key}`
-- **メタデータ保存**: ファイル名、サイズ、MIMEタイプをMinIOオブジェクトメタデータに保存
+- **メタデータ保存**: ファイル名、元サイズ、各変換サイズ、MIMEタイプをMinIOオブジェクトメタデータに保存
 - **重複回避**: タイムスタンプ + ユーザーID + ガチャID組み合わせによるユニークキー生成
 
 ### 5.5 認証・セキュリティ
@@ -136,8 +149,9 @@
 - ✅ SQLインジェクション対策（パラメータ化クエリ）
 - ✅ 入力値検証（Joi）
 - ✅ 画像ファイル検証（MIMEタイプ、マジックバイト確認）
-- ✅ ファイルサイズ制限（アップロード時）
+- ✅ ファイルサイズ制限（アップロード時最大10MB）
 - ❌ 画像アクセス権限制御（MinIO側設定）
+- ✅ Sharp.js画像処理セキュリティ（不正ファイル検証、メモリ制限）
 
 ### 5.6 レスポンス形式
 ```json
@@ -177,32 +191,46 @@
   ]
 }
 
-// ガチャ画像一覧取得レスポンス（新規追加）
+//ガチャ画像一覧取得レスポンス（新規追加）
 {
   "images": [
     {
       "id": 1,
       "gacha_id": 1,
-      "image_url": "http://localhost:9000/gacha-images/users/123/gachas/1/1640995200000_main.jpg",
-      "object_key": "users/123/gachas/1/1640995200000_main.jpg",
-      "filename": "main.jpg",
-      "size": 3145728,
-      "mime_type": "image/jpeg",
+      "original_filename": "main.jpg",
       "display_order": 1,
       "is_main": true,
-      "created_at": "2024-01-01T00:00:00.000Z"
-    },
-    {
-      "id": 2,
-      "gacha_id": 1,
-      "image_url": "http://localhost:9000/gacha-images/users/123/gachas/1/1640995260000_sub1.jpg",
-      "object_key": "users/123/gachas/1/1640995260000_sub1.jpg",
-      "filename": "sub1.jpg",
-      "size": 2097152,
-      "mime_type": "image/jpeg",
-      "display_order": 2,
-      "is_main": false,
-      "created_at": "2024-01-01T00:01:00.000Z"
+      "created_at": "2024-01-01T00:00:00.000Z",
+      "sizes": {
+        "original": {
+          "avif": "http://localhost:9000/gacha-images/users/123/gachas/1/original/avif/1640995200000_main.avif",
+          "webp": "http://localhost:9000/gacha-images/users/123/gachas/1/original/webp/1640995200000_main.webp",
+          "jpeg": "http://localhost:9000/gacha-images/users/123/gachas/1/original/jpeg/1640995200000_main.jpg",
+          "width": 2048,
+          "height": 1536
+        },
+        "desktop": {
+          "avif": "http://localhost:9000/gacha-images/users/123/gachas/1/desktop/avif/1640995200000_main.avif",
+          "webp": "http://localhost:9000/gacha-images/users/123/gachas/1/desktop/webp/1640995200000_main.webp",
+          "jpeg": "http://localhost:9000/gacha-images/users/123/gachas/1/desktop/jpeg/1640995200000_main.jpg",
+          "width": 1024,
+          "height": 768
+        },
+        "mobile": {
+          "avif": "http://localhost:9000/gacha-images/users/123/gachas/1/mobile/avif/1640995200000_main.avif",
+          "webp": "http://localhost:9000/gacha-images/users/123/gachas/1/mobile/webp/1640995200000_main.webp",
+          "jpeg": "http://localhost:9000/gacha-images/users/123/gachas/1/mobile/jpeg/1640995200000_main.jpg",
+          "width": 512,
+          "height": 384
+        },
+        "thumbnail": {
+          "avif": "http://localhost:9000/gacha-images/users/123/gachas/1/thumbnail/avif/1640995200000_main.avif",
+          "webp": "http://localhost:9000/gacha-images/users/123/gachas/1/thumbnail/webp/1640995200000_main.webp",
+          "jpeg": "http://localhost:9000/gacha-images/users/123/gachas/1/thumbnail/jpeg/1640995200000_main.jpg",
+          "width": 150,
+          "height": 150
+        }
+      }
     }
   ]
 }
@@ -210,12 +238,34 @@
 // 画像アップロードレスポンス
 {
   "success": true,
-  "image_url": "http://localhost:9000/gacha-images/users/123/items/1640995200000_diamond.png",
-  "object_key": "users/123/items/1640995200000_diamond.png",
+  "image_id": 123,
+  "original_filename": "diamond.png",
+  "sizes": {
+    "original": {
+      "avif": "http://localhost:9000/gacha-images/users/123/items/original/avif/1640995200000_diamond.avif",
+      "webp": "http://localhost:9000/gacha-images/users/123/items/original/webp/1640995200000_diamond.webp",
+      "jpeg": "http://localhost:9000/gacha-images/users/123/items/original/jpeg/1640995200000_diamond.jpg"
+    },
+    "desktop": {
+      "avif": "http://localhost:9000/gacha-images/users/123/items/desktop/avif/1640995200000_diamond.avif",
+      "webp": "http://localhost:9000/gacha-images/users/123/items/desktop/webp/1640995200000_diamond.webp",
+      "jpeg": "http://localhost:9000/gacha-images/users/123/items/desktop/jpeg/1640995200000_diamond.jpg"
+    },
+    "mobile": {
+      "avif": "http://localhost:9000/gacha-images/users/123/items/mobile/avif/1640995200000_diamond.avif",
+      "webp": "http://localhost:9000/gacha-images/users/123/items/mobile/webp/1640995200000_diamond.webp",
+      "jpeg": "http://localhost:9000/gacha-images/users/123/items/mobile/jpeg/1640995200000_diamond.jpg"
+    },
+    "thumbnail": {
+      "avif": "http://localhost:9000/gacha-images/users/123/items/thumbnail/avif/1640995200000_diamond.avif",
+      "webp": "http://localhost:9000/gacha-images/users/123/items/thumbnail/webp/1640995200000_diamond.webp",
+      "jpeg": "http://localhost:9000/gacha-images/users/123/items/thumbnail/jpeg/1640995200000_diamond.jpg"
+    }
+  },
   "metadata": {
-    "filename": "diamond.png",
-    "size": 2048576,
-    "mimeType": "image/png"
+    "original_size": 2048576,
+    "original_format": "png",
+    "processing_time": "1.2s"
   }
 }
 
@@ -223,13 +273,36 @@
 {
   "images": [
     {
-      "object_key": "users/123/items/1640995200000_diamond.png",
-      "image_url": "http://localhost:9000/gacha-images/users/123/items/1640995200000_diamond.png",
-      "filename": "diamond.png",
-      "size": 2048576,
-      "mimeType": "image/png",
+      "id": 1,
+      "original_filename": "diamond.png",
       "uploaded_at": "2024-01-01T00:00:00.000Z",
-      "used_by_items": ["ダイヤモンド", "レアダイヤ"]
+      "used_by_items": ["ダイヤモンド", "レアダイヤ"],
+      "sizes": {
+        "original": {
+          "avif": "http://localhost:9000/gacha-images/users/123/items/original/avif/1640995200000_diamond.avif",
+          "webp": "http://localhost:9000/gacha-images/users/123/items/original/webp/1640995200000_diamond.webp",
+          "jpeg": "http://localhost:9000/gacha-images/users/123/items/original/jpeg/1640995200000_diamond.jpg",
+          "file_size": 156789
+        },
+        "desktop": {
+          "avif": "http://localhost:9000/gacha-images/users/123/items/desktop/avif/1640995200000_diamond.avif",
+          "webp": "http://localhost:9000/gacha-images/users/123/items/desktop/webp/1640995200000_diamond.webp",
+          "jpeg": "http://localhost:9000/gacha-images/users/123/items/desktop/jpeg/1640995200000_diamond.jpg",
+          "file_size": 98765
+        },
+        "mobile": {
+          "avif": "http://localhost:9000/gacha-images/users/123/items/mobile/avif/1640995200000_diamond.avif",
+          "webp": "http://localhost:9000/gacha-images/users/123/items/mobile/webp/1640995200000_diamond.webp",
+          "jpeg": "http://localhost:9000/gacha-images/users/123/items/mobile/jpeg/1640995200000_diamond.jpg",
+          "file_size": 45123
+        },
+        "thumbnail": {
+          "avif": "http://localhost:9000/gacha-images/users/123/items/thumbnail/avif/1640995200000_diamond.avif",
+          "webp": "http://localhost:9000/gacha-images/users/123/items/thumbnail/webp/1640995200000_diamond.webp",
+          "jpeg": "http://localhost:9000/gacha-images/users/123/items/thumbnail/jpeg/1640995200000_diamond.jpg",
+          "file_size": 12345
+        }
+      }
     }
   ]
 }
@@ -253,22 +326,25 @@
 - ✅ セキュリティ: パラメータ化クエリ、オーナーシップ検証
 - ✅ MinIO統合: MinIO Client（minio JavaScript library）
 - ❌ ファイルアップロード: Fastify Multipart Plugin
-- ❌ 画像処理: Sharp（リサイズ・最適化、将来対応）
+- ❌ 画像処理: Sharp（リサイズ・最適化・AVIF変換）
 
 ### 6.3 MinIO技術仕様
-- **ライブラリ**: `minio` JavaScript client
+- **ライブラリ**: `minio` JavaScript client + `sharp` 画像処理
 - **バケット**: `gacha-images`
 - **アクセス制御**: パブリック読み取り許可
-- **オブジェクトキー形式**: `users/{user_id}/items/{timestamp}_{filename}`
-- **メタデータ**: `x-amz-meta-original-name`, `x-amz-meta-uploaded-by`
+- **オブジェクトキー形式**: `users/{user_id}/{type}/{size}/{format}/{timestamp}_{filename}`
+- **サイズ種別**: original, desktop, mobile, thumbnail
+- **フォーマット種別**: avif, webp, jpeg（優先順）
+- **メタデータ**: `x-amz-meta-original-name`, `x-amz-meta-uploaded-by`, `x-amz-meta-original-size`
 - **URL形式**: `http://localhost:9000/gacha-images/{object_key}`
 
 ### 6.4 データベース実装状況
 - ✅ gachas テーブル: 完全対応（is_public列使用）
-- ✅ gacha_items テーブル: 完全CRUD対応、image_url列でMinIOオブジェクトURL保存
+- ✅ gacha_items テーブル: 完全CRUD対応、image_url列でMinIOオブジェクトURL保存（複数サイズ対応）
 - ✅ users テーブル: 認証対応
 - ✅ マイグレーション: 最新スキーマ適用済み
-- ❌ images テーブル: MinIO画像メタデータ管理（将来実装予定）
+- ❌ images テーブル: MinIO画像メタデータ管理（複数サイズ・フォーマット対応）
+- ❌ image_variants テーブル: 画像サイズ別URL管理（将来実装予定）
 
 ## 7. 実装完了事項・備考
 ### 7.1 完了済み機能
@@ -287,18 +363,20 @@
 - 🔄 リアルタイムでの状態更新（公開/非公開切り替え等）
 - 🔄 フロントエンド全画面実装
 - ❌ 画像アップロード機能（ドラッグ&ドロップ対応）
-- ❌ 画像プレビュー・管理機能
-- ❌ MinIO統合によるファイル管理
-- ❌ 画像の自動リサイズ・最適化（将来対応）
+- ❌ 画像プレビュー・管理機能（レスポンシブ画像表示）
+- ❌ Sharp.js統合によるファイル処理
+- ❌ 画像の自動リサイズ・AVIF変換
 - ❌ アップロード進捗表示
 - ❌ 画像使用状況表示機能
+- ❌ ブラウザサポート判定機能（AVIF/WebP/JPEG自動切り替え）
 
 ### 7.3 開発メモ
 - データベーススキーマは統一済み（is_public列使用）
 - 認証ミドルウェアによる自動的な本人確認
 - エラーレスポンスの標準化完了
 - API テスト完了（curl による動作確認済み）
-- MinIO統合により画像URLは動的生成（`http://localhost:9000/gacha-images/{object_key}`）
-- 画像アップロード時のセキュリティ検証が必要（MIMEタイプ、マジックバイト）
-- オブジェクトキーのユニーク性確保が重要（タイムスタンプ + ユーザーID使用）
+- Sharp.js統合により画像URLは動的生成（デバイス・ブラウザに応じた最適画像選択）
+- 画像アップロード時のセキュリティ検証が必要（MIMEタイプ、マジックバイト、Sharp.js処理時メモリ制限）
+- オブジェクトキーのユニーク性確保が重要（タイムスタンプ + ユーザーID + サイズ + フォーマット使用）
 - 本番環境では画像CDN連携を検討（CloudFront等）
+- AVIF未対応ブラウザのfallback戦略実装が必要

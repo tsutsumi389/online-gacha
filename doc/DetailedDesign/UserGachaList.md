@@ -20,6 +20,7 @@
 ## 3. UI/UX特徴
 - Material-UI + Framer Motionによるモダンデザイン
 - 画像スライダー（Swiper.js）
+- レスポンシブ画像表示（Sharp.js処理済み、AVIF/WebP/JPEG自動選択）
 - レアリティ表示
 - 在庫状況プログレスバー
 - 評価・レビュー表示
@@ -33,7 +34,7 @@
 - **作成者**: users.name（作成者情報）
 - **評価**: 集計データ（rating）
 - **プレイ数**: 集計データ（totalPlays）
-- **画像**: 複数画像対応
+- **画像**: 複数画像対応（レスポンシブ表示、AVIF/WebP/JPEG自動選択）
 - **レアリティ構成**: gacha_items.rarity
 - **在庫状況**: gacha_items.stock
 - **公開期間**: gachas.display_from ～ gachas.display_to
@@ -115,6 +116,8 @@
 - 空データ時の適切なメッセージ
 - 画像未設定時のフォールバック表示
 - レスポンシブ対応（スマホ・タブレット・PC）
+- レスポンシブ画像配信（デバイスサイズ・ブラウザサポートに応じた最適画像選択）
+- 画像遅延読み込み（Intersection Observer API）
 - アクセシビリティ配慮（ARIA属性、キーボード操作）
 
 ## 7. 権限制御**【✅ 実装完了】**
@@ -129,8 +132,9 @@
 - **状態管理**: React Hooks（useState, useEffect）
 - **API通信**: Fetch API with utils/api.js
 - **アニメーション**: Framer Motion
-- **画像表示**: Swiper.js
-- **レスポンシブ**: Material-UI Grid System
+- **画像表示**: Swiper.js + レスポンシブ画像選択ロジック
+- **画像最適化**: Sharp.js処理済み画像（AVIF/WebP/JPEG、4サイズ対応）
+- **レスポンシブ**: Material-UI Grid System + Picture要素
 
 ## 9. エラーハンドリング
 - ネットワークエラー時の再試行機能
@@ -139,7 +143,9 @@
 - 画像読み込みエラー時の代替表示
 
 ## 10. パフォーマンス考慮
-- 画像遅延読み込み
+- 画像遅延読み込み（Intersection Observer API）
+- レスポンシブ画像配信（Picture要素 + srcset）
+- AVIF/WebP対応ブラウザでの高圧縮画像配信
 - 仮想スクロール（大量データ対応）
 - APIレスポンスキャッシュ
 - 検索デバウンス処理
