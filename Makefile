@@ -9,7 +9,7 @@ DOCKER_EXEC_CMD=docker compose exec web sh
 INSTALL_WEB_CMD=docker compose exec web npm install
 INSTALL_FRONTEND_CMD=docker compose exec frontend npm install
 
-.PHONY: migrate seed docker-up docker-sh install-web install-frontend install-all setup help
+.PHONY: migrate seed docker-up docker-sh install-web install-frontend install-all setup help migrate-status migrate-down migrate-sharp migrate-check
 
 setup: docker-up install-all migrate seed
 	@echo "✅ Setup completed successfully!"
@@ -18,6 +18,24 @@ setup: docker-up install-all migrate seed
 
 migrate:
 	$(MIGRATE_CMD)
+
+migrate-status:
+	docker compose exec db psql -U user -d gacha_db -c "SELECT name, run_on FROM migrations ORDER BY id;"
+
+migrate-down:
+	docker compose exec web npm run migrate -- down
+
+migrate-sharp:
+	@echo "🔄 Running Sharp.js image system migration..."
+	docker compose exec web npm run migrate -- up 1640995200000
+	docker compose exec web npm run migrate -- up 1640995300000
+	@echo "✅ Sharp.js migration completed!"
+
+migrate-check:
+	@echo "📋 Checking migration status..."
+	docker compose exec db psql -U user -d gacha_db -c "SELECT name, run_on FROM migrations ORDER BY id;"
+	@echo "📊 Checking image processing progress..."
+	docker compose exec db psql -U user -d gacha_db -c "SELECT * FROM get_image_processing_progress();"
 
 seed:
 	$(SEED_CMD)
@@ -41,7 +59,11 @@ install-all:
 help:
 	@echo "Available commands:"
 	@echo "  setup           - Complete project setup (docker-up + install-all + migrate + seed)"
-	@echo "  migrate         - Run database migrations"
+	@echo "  migrate         - Run all pending database migrations"
+	@echo "  migrate-status  - Show current migration status"
+	@echo "  migrate-down    - Rollback last migration"
+	@echo "  migrate-sharp   - Run Sharp.js image system migration specifically"
+	@echo "  migrate-check   - Check migration status and image processing progress"
 	@echo "  seed            - Run database seed data"
 	@echo "  docker-up       - Start all Docker services"
 	@echo "  docker-sh       - Access web container shell"
