@@ -92,6 +92,11 @@ export default function AdminGachaEdit() {
       setGachaImagesLoading(true);
       setGachaImageError('');
       const response = await adminGachaAPI.getGachaImages(currentGachaId);
+      console.log('ガチャ画像レスポンス:', response); // デバッグ用
+      console.log('ガチャ画像データ:', response.images); // デバッグ用
+      if (response.images && response.images.length > 0) {
+        console.log('最初の画像サンプル:', response.images[0]); // デバッグ用
+      }
       setGachaImages(response.images || []);
     } catch (err) {
       // 404エラー（ガチャが見つからない、または画像が存在しない）の場合は空の配列を設定
@@ -623,8 +628,8 @@ export default function AdminGachaEdit() {
                     
                     {/* 画像 */}
                     <img
-                      src={image.imageUrl}
-                      alt={image.filename}
+                      src={image.imageUrl || (image.imageSet && image.imageSet.fallback) || ''}
+                      alt={image.originalFilename || image.filename || ''}
                       style={{
                         width: '100%',
                         height: '150px',
@@ -636,10 +641,10 @@ export default function AdminGachaEdit() {
                     {/* 画像情報と操作ボタン */}
                     <Box sx={{ p: 1 }}>
                       <Typography variant="caption" noWrap>
-                        {image.filename}
+                        {image.originalFilename || image.filename || ''}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" display="block">
-                        {Math.round(image.size / 1024)}KB
+                        {Math.round((image.originalSize || image.size || 0) / 1024)}KB
                       </Typography>
                       <Typography variant="caption" color="text.secondary" display="block">
                         順序: {image.displayOrder}

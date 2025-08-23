@@ -63,8 +63,11 @@ fastify.register(userGachaRoutes, { prefix: '/api/my' });
 // 管理者用ガチャ管理のルート
 fastify.register(userGachaRoutes, { prefix: '/api/admin' });
 
-// 画像管理のルート
+// 画像管理のルート（管理者用）
 fastify.register(imageRoutes, { prefix: '/api/admin/images' });
+
+// 画像配信のルート（一般用）
+fastify.register(imageRoutes, { prefix: '/api/images' });
 
 // エラーハンドラーの設定
 fastify.setErrorHandler(errorHandler(fastify));

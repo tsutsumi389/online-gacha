@@ -337,6 +337,7 @@ async function imageRoutes(fastify, options) {
   fastify.get('/serve/:gachaId/images/:imageId/:variant', {
     handler: async (request, reply) => {
       try {
+        console.log('Image serve request:', request.params);
         const { gachaId, imageId, variant } = request.params;
         
         // バリアント情報をパース（例: desktop.webp）

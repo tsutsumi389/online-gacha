@@ -353,6 +353,16 @@ export async function processItemImage(db, buffer, userId, originalFilename, isP
  * 画像配信用URLの生成
  */
 export function generateImageUrl(baseObjectKey, sizeType = 'desktop', formatType = 'webp') {
+  // baseObjectKey: "gacha/12/images/185693ac-51a8-4d66-8824-851440997510"
+  // から gachaId と imageId を抽出
+  const parts = baseObjectKey.split('/');
+  if (parts.length >= 4 && parts[0] === 'gacha' && parts[2] === 'images') {
+    const gachaId = parts[1];
+    const imageId = parts[3];
+    return `/api/images/serve/${gachaId}/images/${imageId}/${sizeType}.${formatType}`;
+  }
+  
+  // fallback (旧形式対応)
   return `/api/images/serve/${baseObjectKey}/${sizeType}.${formatType}`;
 }
 

@@ -6,6 +6,7 @@ import { uploadFile, generateGachaImageObjectKey, validateFile, deleteFile } fro
 import { 
   processGachaImage, 
   generateResponsiveImageSet,
+  generateImageUrl,
   getProcessingStatistics,
   retryFailedProcessing
 } from '../utils/imageProcessor.js';
@@ -503,9 +504,59 @@ export default async function userGachaRoutes(fastify, options) {
       }
 
       const images = await Gacha.getGachaImages(gachaId, request.user.userId);
+      
+      console.log('Raw images from DB:', images.length);
+      if (images.length > 0) {
+        console.log('First image:', images[0]);
+      }
 
-      return reply.send({
-        images: images.map(img => ({
+      const responseImages = images.map(img => {
+        // MinIO の直接URLを使用（認証不要）
+        let imageUrl = null;
+        let imageSet = null;
+        
+        if (img.variants && img.variants.length > 0) {
+          // desktop.webp を優先的に探す
+          const desktopWebp = img.variants.find(v => v.sizeType === 'desktop' && v.formatType === 'webp');
+          if (desktopWebp) {
+            imageUrl = desktopWebp.imageUrl; // MinIO の直接URL
+          } else {
+            // fallback: 最初のバリアント
+            imageUrl = img.variants[0].imageUrl;
+          }
+          
+          // レスポンシブ画像セットもMinIO URLsで構築
+          imageSet = {
+            sources: [
+              {
+                type: 'image/avif',
+                srcSet: img.variants
+                  .filter(v => v.formatType === 'avif')
+                  .map(v => `${v.imageUrl} ${v.width}w`)
+                  .join(', ')
+              },
+              {
+                type: 'image/webp', 
+                srcSet: img.variants
+                  .filter(v => v.formatType === 'webp')
+                  .map(v => `${v.imageUrl} ${v.width}w`)
+                  .join(', ')
+              },
+              {
+                type: 'image/jpeg',
+                srcSet: img.variants
+                  .filter(v => v.formatType === 'jpeg')
+                  .map(v => `${v.imageUrl} ${v.width}w`)
+                  .join(', ')
+              }
+            ].filter(source => source.srcSet.length > 0),
+            fallback: img.variants.find(v => v.sizeType === 'desktop' && v.formatType === 'jpeg')?.imageUrl || imageUrl
+          };
+        }
+        
+        console.log(`Image ${img.id}: using MinIO URL=${imageUrl}`);
+        
+        return {
           id: img.id,
           gachaId: img.gacha_id,
           originalFilename: img.original_filename,
@@ -517,8 +568,9 @@ export default async function userGachaRoutes(fastify, options) {
           processingStatus: img.processing_status,
           variantCount: img.variant_count,
           variants: img.variants || [],
-          // レスポンシブ画像セット生成
-          imageSet: img.base_object_key ? generateResponsiveImageSet(img.base_object_key) : null,
+          // MinIO の直接URLを使用
+          imageSet: imageSet,
+          imageUrl: imageUrl,
           // 統計情報
           statistics: {
             totalVariants: img.variant_count || 0,
@@ -527,7 +579,13 @@ export default async function userGachaRoutes(fastify, options) {
           },
           createdAt: img.created_at,
           updatedAt: img.updated_at
-        }))
+        };
+      });
+      
+      console.log('Sending response with', responseImages.length, 'images');
+
+      return reply.send({
+        images: responseImages
       });
 
     } catch (error) {
