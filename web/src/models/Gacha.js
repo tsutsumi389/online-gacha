@@ -52,7 +52,9 @@ class Gacha {
           u.name as creator_name,
           COUNT(DISTINCT gi.id) as item_count,
           COUNT(DISTINCT gr.id) as play_count,
-          main_img.image_url as main_image_url
+          main_img.base_object_key as main_image_base_key,
+          main_img.original_filename as main_image_filename,
+          main_img.processing_status as main_image_status
         FROM gachas g
         LEFT JOIN users u ON g.user_id = u.id
         LEFT JOIN gacha_items gi ON g.id = gi.gacha_id
@@ -71,7 +73,7 @@ class Gacha {
         params.push(`%${search}%`);
       }
 
-      query += ` GROUP BY g.id, u.name, main_img.image_url`;
+      query += ` GROUP BY g.id, u.name, main_img.base_object_key, main_img.original_filename, main_img.processing_status`;
 
       // ソート条件を追加
       const allowedSortColumns = ['created_at', 'name', 'price', 'play_count'];
@@ -90,7 +92,40 @@ class Gacha {
       params.push(offset);
 
       const result = await database.query(query, params);
-      return result.rows;
+      
+      // 各ガチャにメイン画像URLを追加
+      const gachasWithImages = await Promise.all(result.rows.map(async (gacha) => {
+        let main_image_url = null;
+        
+        if (gacha.main_image_base_key && gacha.main_image_status === 'completed') {
+          // メイン画像のバリアントを取得
+          const variantQuery = `
+            SELECT object_key, image_url, size_type, format_type
+            FROM image_variants iv
+            JOIN gacha_images gi ON iv.gacha_image_id = gi.id
+            WHERE gi.base_object_key = $1 AND gi.is_main = true
+            ORDER BY 
+              CASE 
+                WHEN iv.size_type = 'desktop' AND iv.format_type = 'webp' THEN 1
+                WHEN iv.size_type = 'desktop' AND iv.format_type = 'jpeg' THEN 2
+                ELSE 3
+              END
+            LIMIT 1
+          `;
+          
+          const variantResult = await database.query(variantQuery, [gacha.main_image_base_key]);
+          if (variantResult.rows.length > 0) {
+            main_image_url = variantResult.rows[0].image_url;
+          }
+        }
+        
+        return {
+          ...gacha,
+          main_image_url
+        };
+      }));
+      
+      return gachasWithImages;
     } catch (error) {
       console.error('Error in findActiveWithFilters:', error);
       throw error;
@@ -119,17 +154,53 @@ class Gacha {
           g.price,
           g.created_at,
           u.name as creator_name,
-          COUNT(gr.id) as play_count
+          COUNT(gr.id) as play_count,
+          main_img.base_object_key as main_image_base_key,
+          main_img.processing_status as main_image_status
         FROM gachas g
         LEFT JOIN users u ON g.user_id = u.id
         LEFT JOIN gacha_results gr ON g.id = gr.gacha_id
+        LEFT JOIN gacha_images main_img ON g.id = main_img.gacha_id AND main_img.is_main = true
         WHERE g.is_public = true
-        GROUP BY g.id, u.name
+        GROUP BY g.id, u.name, main_img.base_object_key, main_img.processing_status
         ORDER BY play_count DESC
         LIMIT $1
       `;
       const result = await database.query(query, [limit]);
-      return result.rows;
+      
+      // 各ガチャにメイン画像URLを追加
+      const gachasWithImages = await Promise.all(result.rows.map(async (gacha) => {
+        let main_image_url = null;
+        
+        if (gacha.main_image_base_key && gacha.main_image_status === 'completed') {
+          // メイン画像のバリアントを取得
+          const variantQuery = `
+            SELECT object_key, image_url, size_type, format_type
+            FROM image_variants iv
+            JOIN gacha_images gi ON iv.gacha_image_id = gi.id
+            WHERE gi.base_object_key = $1 AND gi.is_main = true
+            ORDER BY 
+              CASE 
+                WHEN iv.size_type = 'desktop' AND iv.format_type = 'webp' THEN 1
+                WHEN iv.size_type = 'desktop' AND iv.format_type = 'jpeg' THEN 2
+                ELSE 3
+              END
+            LIMIT 1
+          `;
+          
+          const variantResult = await database.query(variantQuery, [gacha.main_image_base_key]);
+          if (variantResult.rows.length > 0) {
+            main_image_url = variantResult.rows[0].image_url;
+          }
+        }
+        
+        return {
+          ...gacha,
+          main_image_url
+        };
+      }));
+      
+      return gachasWithImages;
     } catch (error) {
       console.error('Error in getPopular:', error);
       throw error;
@@ -194,12 +265,14 @@ class Gacha {
           g.updated_at,
           COUNT(DISTINCT gi.id) as item_count,
           0 as play_count,
-          main_img.image_url as main_image_url
+          main_img.base_object_key as main_image_base_key,
+          main_img.original_filename as main_image_filename,
+          main_img.processing_status as main_image_status
         FROM gachas g
         LEFT JOIN gacha_items gi ON g.id = gi.gacha_id
         LEFT JOIN gacha_images main_img ON g.id = main_img.gacha_id AND main_img.is_main = true
         ${whereClause}
-        GROUP BY g.id, g.name, g.description, g.price, g.is_public, g.created_at, g.updated_at, main_img.image_url
+        GROUP BY g.id, g.name, g.description, g.price, g.is_public, g.created_at, g.updated_at, main_img.base_object_key, main_img.original_filename, main_img.processing_status
         ORDER BY g.${sortBy} ${sortOrder.toUpperCase()}
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `;
@@ -702,20 +775,37 @@ class Gacha {
       // この段階ではガチャの存在は確認済みなので、画像クエリのみ実行
       const query = `
         SELECT 
-          id,
-          gacha_id,
-          image_url,
-          object_key,
-          filename,
-          size,
-          mime_type,
-          display_order,
-          is_main,
-          created_at,
-          updated_at
-        FROM gacha_images 
-        WHERE gacha_id = $1 
-        ORDER BY display_order ASC, created_at ASC
+          gi.id,
+          gi.gacha_id,
+          gi.original_filename,
+          gi.base_object_key,
+          gi.original_size,
+          gi.original_mime_type,
+          gi.display_order,
+          gi.is_main,
+          gi.processing_status,
+          gi.created_at,
+          gi.updated_at,
+          COUNT(iv.id) as variant_count,
+          json_agg(
+            json_build_object(
+              'sizeType', iv.size_type,
+              'formatType', iv.format_type,
+              'objectKey', iv.object_key,
+              'imageUrl', iv.image_url,
+              'fileSize', iv.file_size,
+              'width', iv.width,
+              'height', iv.height,
+              'quality', iv.quality
+            ) ORDER BY iv.size_type, iv.format_type
+          ) FILTER (WHERE iv.id IS NOT NULL) as variants
+        FROM gacha_images gi
+        LEFT JOIN image_variants iv ON gi.id = iv.gacha_image_id
+        WHERE gi.gacha_id = $1 
+        GROUP BY gi.id, gi.gacha_id, gi.original_filename, gi.base_object_key, 
+                 gi.original_size, gi.original_mime_type, gi.display_order, 
+                 gi.is_main, gi.processing_status, gi.created_at, gi.updated_at
+        ORDER BY gi.display_order ASC, gi.created_at ASC
       `;
 
       const result = await database.query(query, [gachaId]);
@@ -726,8 +816,9 @@ class Gacha {
     }
   }
 
-  // ガチャ画像追加
+  // ガチャ画像追加（従来版 - 非推奨、Sharp.js版の利用を推奨）
   static async addGachaImage(gachaId, imageData, userId) {
+    console.warn('addGachaImage method is deprecated. Use Sharp.js image processing instead.');
     try {
       // ガチャの所有者確認
       const gacha = await this.findByIdForUser(gachaId, userId);
@@ -747,22 +838,24 @@ class Gacha {
       // 画像が1枚目の場合は自動的にメイン画像に設定
       const isFirstImage = nextOrder === 1;
 
+      // 新しいテーブル構造に合わせて画像メタデータを保存
+      // 従来形式のデータを新しい形式に変換
       const query = `
         INSERT INTO gacha_images (
-          gacha_id, image_url, object_key, filename, size, 
-          mime_type, display_order, is_main
+          gacha_id, original_filename, base_object_key, 
+          original_size, original_mime_type, display_order, 
+          is_main, processing_status, created_at, updated_at
         ) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'completed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         RETURNING *
       `;
 
       const values = [
         gachaId,
-        imageData.image_url,
-        imageData.object_key,
-        imageData.filename,
-        imageData.size,
-        imageData.mime_type,
+        imageData.filename || imageData.original_filename,
+        imageData.object_key || imageData.base_object_key,
+        imageData.size || imageData.original_size,
+        imageData.mime_type || imageData.original_mime_type,
         nextOrder,
         isFirstImage
       ];
@@ -775,7 +868,7 @@ class Gacha {
     }
   }
 
-  // ガチャ画像削除
+  // ガチャ画像削除（Sharp.js対応）
   static async deleteGachaImage(gachaId, imageId, userId) {
     try {
       // ガチャの所有者確認
@@ -786,7 +879,8 @@ class Gacha {
 
       // 画像がそのガチャに属するかも確認
       const imageCheckQuery = `
-        SELECT id, display_order, is_main FROM gacha_images
+        SELECT id, display_order, is_main, base_object_key 
+        FROM gacha_images
         WHERE id = $1 AND gacha_id = $2
       `;
       const imageCheck = await database.query(imageCheckQuery, [imageId, gachaId]);
@@ -795,6 +889,14 @@ class Gacha {
       }
 
       const deletedImage = imageCheck.rows[0];
+
+      // 関連する画像バリアントも削除
+      const deleteVariantsQuery = `
+        DELETE FROM image_variants
+        WHERE gacha_image_id = $1
+        RETURNING object_key
+      `;
+      const variantResult = await database.query(deleteVariantsQuery, [imageId]);
 
       // 画像削除
       const deleteQuery = `
@@ -822,7 +924,11 @@ class Gacha {
         await database.query(newMainQuery, [gachaId]);
       }
 
-      return deleteResult.rows[0];
+      return {
+        deletedImage: deleteResult.rows[0],
+        deletedVariants: variantResult.rows,
+        baseObjectKey: deletedImage.base_object_key
+      };
     } catch (error) {
       console.error('Error in deleteGachaImage:', error);
       throw error;

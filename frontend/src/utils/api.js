@@ -230,14 +230,6 @@ export const myGachaAPI = {
     return apiRequest(`/api/my/gachas/${gachaId}/images`);
   },
 
-  // ガチャ画像アップロード
-  uploadGachaImage: async (gachaId, formData) => {
-    return apiRequest(`/api/my/gachas/${gachaId}/images/upload`, {
-      method: 'POST',
-      body: formData,
-    });
-  },
-
   // ガチャ画像削除
   deleteGachaImage: async (gachaId, imageId) => {
     return apiRequest(`/api/my/gachas/${gachaId}/images/${imageId}`, {
@@ -257,6 +249,43 @@ export const myGachaAPI = {
   setMainGachaImage: async (gachaId, imageId) => {
     return apiRequest(`/api/my/gachas/${gachaId}/images/${imageId}/main`, {
       method: 'PATCH',
+    });
+  },
+};
+
+// 管理者用ガチャAPI
+export const adminGachaAPI = {
+  // ガチャ画像一覧取得
+  getGachaImages: async (gachaId) => {
+    return apiRequest(`/api/admin/gachas/${gachaId}/images`);
+  },
+
+  // ガチャ画像アップロード（Sharp.js処理付き）
+  uploadGachaImage: async (gachaId, imageFile, options = {}) => {
+    console.log('uploadGachaImage called:', { gachaId, imageFile, options });
+    
+    const formData = new FormData();
+    formData.append('image', imageFile);
+    
+    const queryParams = [];
+    if (options.displayOrder) queryParams.push(`displayOrder=${options.displayOrder}`);
+    if (options.isMain) queryParams.push(`isMain=${options.isMain}`);
+    
+    const queryString = queryParams.join('&');
+    const endpoint = `/api/admin/gachas/${gachaId}/images/upload${queryString ? `?${queryString}` : ''}`;
+    
+    console.log('API endpoint:', endpoint);
+    
+    return apiRequest(endpoint, {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
+  // ガチャ画像削除
+  deleteGachaImage: async (gachaId, imageId) => {
+    return apiRequest(`/api/admin/gachas/${gachaId}/images/${imageId}`, {
+      method: 'DELETE',
     });
   },
 };

@@ -3,6 +3,13 @@ import Gacha from '../models/Gacha.js';
 import database from '../config/database.js';
 import { createGachaSchema, updateGachaSchema, createGachaItemSchema, updateGachaItemSchema } from '../schemas/validation.js';
 import { uploadFile, generateGachaImageObjectKey, validateFile, deleteFile } from '../utils/minio.js';
+import { 
+  processGachaImage, 
+  generateResponsiveImageSet,
+  generateImageUrl,
+  getProcessingStatistics,
+  retryFailedProcessing
+} from '../utils/imageProcessor.js';
 
 export default async function userGachaRoutes(fastify, options) {
   // ファイルアップロード設定
@@ -497,21 +504,88 @@ export default async function userGachaRoutes(fastify, options) {
       }
 
       const images = await Gacha.getGachaImages(gachaId, request.user.userId);
+      
+      console.log('Raw images from DB:', images.length);
+      if (images.length > 0) {
+        console.log('First image:', images[0]);
+      }
 
-      return reply.send({
-        images: images.map(img => ({
+      const responseImages = images.map(img => {
+        // MinIO の直接URLを使用（認証不要）
+        let imageUrl = null;
+        let imageSet = null;
+        
+        if (img.variants && img.variants.length > 0) {
+          // desktop.webp を優先的に探す
+          const desktopWebp = img.variants.find(v => v.sizeType === 'desktop' && v.formatType === 'webp');
+          if (desktopWebp) {
+            imageUrl = desktopWebp.imageUrl; // MinIO の直接URL
+          } else {
+            // fallback: 最初のバリアント
+            imageUrl = img.variants[0].imageUrl;
+          }
+          
+          // レスポンシブ画像セットもMinIO URLsで構築
+          imageSet = {
+            sources: [
+              {
+                type: 'image/avif',
+                srcSet: img.variants
+                  .filter(v => v.formatType === 'avif')
+                  .map(v => `${v.imageUrl} ${v.width}w`)
+                  .join(', ')
+              },
+              {
+                type: 'image/webp', 
+                srcSet: img.variants
+                  .filter(v => v.formatType === 'webp')
+                  .map(v => `${v.imageUrl} ${v.width}w`)
+                  .join(', ')
+              },
+              {
+                type: 'image/jpeg',
+                srcSet: img.variants
+                  .filter(v => v.formatType === 'jpeg')
+                  .map(v => `${v.imageUrl} ${v.width}w`)
+                  .join(', ')
+              }
+            ].filter(source => source.srcSet.length > 0),
+            fallback: img.variants.find(v => v.sizeType === 'desktop' && v.formatType === 'jpeg')?.imageUrl || imageUrl
+          };
+        }
+        
+        console.log(`Image ${img.id}: using MinIO URL=${imageUrl}`);
+        
+        return {
           id: img.id,
           gachaId: img.gacha_id,
-          imageUrl: img.image_url,
-          objectKey: img.object_key,
-          filename: img.filename,
-          size: img.size,
-          mimeType: img.mime_type,
+          originalFilename: img.original_filename,
+          baseObjectKey: img.base_object_key,
+          originalSize: img.original_size,
+          originalMimeType: img.original_mime_type,
           displayOrder: img.display_order,
           isMain: img.is_main,
+          processingStatus: img.processing_status,
+          variantCount: img.variant_count,
+          variants: img.variants || [],
+          // MinIO の直接URLを使用
+          imageSet: imageSet,
+          imageUrl: imageUrl,
+          // 統計情報
+          statistics: {
+            totalVariants: img.variant_count || 0,
+            expectedVariants: 12, // 4サイズ × 3フォーマット
+            successRate: img.variant_count ? Math.round((img.variant_count / 12) * 100) : 0
+          },
           createdAt: img.created_at,
           updatedAt: img.updated_at
-        }))
+        };
+      });
+      
+      console.log('Sending response with', responseImages.length, 'images');
+
+      return reply.send({
+        images: responseImages
       });
 
     } catch (error) {
@@ -523,7 +597,7 @@ export default async function userGachaRoutes(fastify, options) {
     }
   });
 
-  // ガチャ画像アップロード
+  // ガチャ画像アップロード（Sharp.js対応）
   fastify.post('/gachas/:id/images/upload', {
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
@@ -539,72 +613,69 @@ export default async function userGachaRoutes(fastify, options) {
         return reply.code(400).send({ error: 'No file uploaded' });
       }
 
-      // ファイル形式チェック
-      const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-      if (!allowedMimeTypes.includes(data.mimetype)) {
-        return reply.code(400).send({ 
-          error: 'Invalid file type. Only JPEG, PNG, and WebP are allowed.' 
-        });
-      }
-
-      // ファイルサイズチェック（5MB制限）
-      const maxSize = 5 * 1024 * 1024; // 5MB
-      const buffer = await data.toBuffer();
-      if (buffer.length > maxSize) {
-        return reply.code(400).send({ 
-          error: 'File too large. Maximum size is 5MB.' 
-        });
-      }
-
       // ガチャの所有者確認
       const gacha = await Gacha.findByIdForUser(gachaId, request.user.userId);
       if (!gacha) {
         return reply.code(404).send({ error: 'Gacha not found' });
       }
 
-      // MinIOにアップロード（メタデータなし）
-      const objectKey = generateGachaImageObjectKey(request.user.userId, gachaId, data.filename);
+      // ファイル検証
+      validateFile(data);
 
-      await uploadFile(objectKey, buffer, data.mimetype);
+      // ファイルバッファを取得
+      const buffer = await data.toBuffer();
+      
+      // 表示順序とメイン画像フラグを取得
+      const { displayOrder, isMain } = request.query;
+      
+      // Sharp.js処理でガチャ画像を保存
+      const result = await processGachaImage(
+        database, 
+        buffer, 
+        gachaId,
+        data.filename, 
+        parseInt(displayOrder) || 1,
+        isMain === 'true'
+      );
 
-      // 画像URLを生成
-      const minioHost = process.env.MINIO_PUBLIC_ENDPOINT || 'localhost';
-      const minioPort = process.env.MINIO_PORT || '9000';
-      const imageUrl = `http://${minioHost}:${minioPort}/gacha-images/${objectKey}`;
-
-      // ガチャ画像テーブルに追加
-      const imageData = {
-        image_url: imageUrl,
-        object_key: objectKey,
-        filename: data.filename,
-        size: buffer.length,
-        mime_type: data.mimetype
-      };
-
-      const gachaImage = await Gacha.addGachaImage(gachaId, imageData, request.user.userId);
-
-      return reply.send({
-        success: true,
-        image: {
-          id: gachaImage.id,
-          gachaId: gachaImage.gacha_id,
-          imageUrl: gachaImage.image_url,
-          objectKey: gachaImage.object_key,
-          filename: gachaImage.filename,
-          size: gachaImage.size,
-          mimeType: gachaImage.mime_type,
-          displayOrder: gachaImage.display_order,
-          isMain: gachaImage.is_main,
-          createdAt: gachaImage.created_at
-        }
-      });
-
-    } catch (error) {
-      fastify.log.error(error);
-      if (error.message === 'Gacha not found or access denied') {
-        return reply.code(404).send({ error: 'Gacha not found' });
+      if (result.success) {
+        // レスポンシブ画像セット生成
+        const baseObjectKey = result.variants[0].objectKey.split('/').slice(0, -1).join('/');
+        const imageSet = generateResponsiveImageSet(baseObjectKey);
+        
+        return reply.send({
+          success: true,
+          gachaImage: {
+            id: result.gachaImageId,
+            gachaId: gachaId,
+            originalFilename: data.filename,
+            baseObjectKey,
+            processingStatus: result.processingStatus,
+            createdAt: new Date().toISOString()
+          },
+          processing: {
+            statistics: result.statistics,
+            variants: result.variants.length,
+            errors: result.errors.length
+          },
+          imageSet,
+          variants: result.variants,
+          errors: result.errors
+        });
+      } else {
+        return reply.code(500).send({
+          success: false,
+          error: 'Image processing failed',
+          details: result.error
+        });
       }
-      return reply.code(500).send({ error: 'Failed to upload image: ' + error.message });
+    } catch (error) {
+      console.error('Gacha image upload error:', error);
+      return reply.code(500).send({
+        success: false,
+        error: 'Upload failed',
+        details: error.message
+      });
     }
   });
 
@@ -744,6 +815,168 @@ export default async function userGachaRoutes(fastify, options) {
         return reply.code(404).send({ error: 'Image not found' });
       }
       return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // ガチャ画像のレスポンシブセット取得
+  fastify.get('/gachas/:id/images/:imageId/responsive', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const gachaId = parseInt(request.params.id);
+      const imageId = parseInt(request.params.imageId);
+      
+      if (isNaN(gachaId) || isNaN(imageId)) {
+        return reply.code(400).send({ error: 'Invalid gacha ID or image ID' });
+      }
+
+      // ガチャの所有者確認
+      const gacha = await Gacha.findByIdForUser(gachaId, request.user.userId);
+      if (!gacha) {
+        return reply.code(404).send({ error: 'Gacha not found' });
+      }
+
+      // 画像情報とバリアントを取得
+      const imageQuery = `
+        SELECT 
+          gi.id,
+          gi.base_object_key,
+          gi.original_filename,
+          gi.processing_status,
+          gi.display_order,
+          gi.is_main,
+          json_agg(
+            json_build_object(
+              'sizeType', iv.size_type,
+              'formatType', iv.format_type,
+              'objectKey', iv.object_key,
+              'imageUrl', iv.image_url,
+              'fileSize', iv.file_size,
+              'width', iv.width,
+              'height', iv.height,
+              'quality', iv.quality
+            ) ORDER BY iv.size_type, iv.format_type
+          ) as variants
+        FROM gacha_images gi
+        LEFT JOIN image_variants iv ON gi.id = iv.gacha_image_id
+        WHERE gi.id = $1 AND gi.gacha_id = $2
+        GROUP BY gi.id, gi.base_object_key, gi.original_filename, gi.processing_status, gi.display_order, gi.is_main
+      `;
+      
+      const result = await fastify.pg.query(imageQuery, [imageId, gachaId]);
+      
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Image not found' });
+      }
+      
+      const imageData = result.rows[0];
+      
+      // レスポンシブ画像セット生成
+      const imageSet = generateResponsiveImageSet(imageData.base_object_key);
+      
+      return reply.send({
+        success: true,
+        image: {
+          id: imageData.id,
+          originalFilename: imageData.original_filename,
+          processingStatus: imageData.processing_status,
+          displayOrder: imageData.display_order,
+          isMain: imageData.is_main
+        },
+        variants: imageData.variants.filter(v => v.sizeType !== null),
+        imageSet,
+        statistics: {
+          totalVariants: imageData.variants.filter(v => v.sizeType !== null).length,
+          expectedVariants: 12, // 4サイズ × 3フォーマット
+          completionRate: Math.round((imageData.variants.filter(v => v.sizeType !== null).length / 12) * 100)
+        }
+      });
+      
+    } catch (error) {
+      console.error('Get responsive image set error:', error);
+      return reply.code(500).send({
+        success: false,
+        error: 'Failed to get responsive image set',
+        details: error.message
+      });
+    }
+  });
+
+  // 画像処理統計情報取得（管理者用）
+  fastify.get('/processing/statistics', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const stats = await getProcessingStatistics(fastify.pg);
+      
+      // ユーザー固有の統計も取得
+      const userStatsQuery = `
+        SELECT 
+          'user_gacha_images' as image_type,
+          COUNT(*) FILTER (WHERE gi.processing_status = 'pending') as pending_count,
+          COUNT(*) FILTER (WHERE gi.processing_status = 'processing') as processing_count,
+          COUNT(*) FILTER (WHERE gi.processing_status = 'completed') as completed_count,
+          COUNT(*) FILTER (WHERE gi.processing_status = 'failed') as failed_count,
+          COUNT(*) as total_count,
+          CASE 
+            WHEN COUNT(*) > 0 THEN 
+              ROUND(COUNT(*) FILTER (WHERE gi.processing_status = 'completed') * 100.0 / COUNT(*), 2)
+            ELSE 0
+          END as completion_rate
+        FROM gacha_images gi
+        JOIN gachas g ON gi.gacha_id = g.id
+        WHERE g.user_id = $1
+      `;
+      
+      const userStatsResult = await fastify.pg.query(userStatsQuery, [request.user.userId]);
+      
+      return reply.send({
+        success: true,
+        globalStatistics: stats,
+        userStatistics: userStatsResult.rows[0]
+      });
+    } catch (error) {
+      console.error('Get processing statistics error:', error);
+      return reply.code(500).send({
+        success: false,
+        error: 'Failed to get processing statistics',
+        details: error.message
+      });
+    }
+  });
+
+  // 失敗した画像処理の再試行（ユーザー画像のみ）
+  fastify.post('/processing/retry', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      // ユーザーのガチャに関連する失敗画像のみ再試行
+      const retryQuery = `
+        UPDATE gacha_images 
+        SET processing_status = 'pending', updated_at = CURRENT_TIMESTAMP
+        WHERE processing_status = 'failed' 
+        AND gacha_id IN (SELECT id FROM gachas WHERE user_id = $1)
+        RETURNING id, original_filename
+      `;
+      
+      const result = await fastify.pg.query(retryQuery, [request.user.userId]);
+      
+      return reply.send({
+        success: true,
+        message: `${result.rows.length} images marked for retry`,
+        retryList: result.rows.map(row => ({
+          imageType: 'gacha_images',
+          imageId: row.id,
+          filename: row.original_filename
+        }))
+      });
+    } catch (error) {
+      console.error('Retry processing error:', error);
+      return reply.code(500).send({
+        success: false,
+        error: 'Failed to retry processing',
+        details: error.message
+      });
     }
   });
 }
