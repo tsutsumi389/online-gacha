@@ -441,7 +441,10 @@ export default function UserGachaList() {
 
                         {/* 作成者情報 */}
                         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                          <Avatar src={gacha.creatorAvatar} sx={{ width: 32, height: 32, mr: 1 }}>
+                          <Avatar 
+                            src={gacha.creator_avatar_url} 
+                            sx={{ width: 32, height: 32, mr: 1 }}
+                          >
                             {gacha.creator_name ? gacha.creator_name.charAt(0) : 'U'}
                           </Avatar>
                           <Box>
