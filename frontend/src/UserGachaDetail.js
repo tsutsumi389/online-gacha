@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Button, Grid, Card, CardContent, CardMedia, 
   Container, Chip, LinearProgress, Badge, IconButton, Paper,
@@ -22,6 +23,7 @@ import { handleApiError } from './utils/api';
 import GachaPerformance from './GachaPerformance';
 
 export default function UserGachaDetail({ gachaId, onBack }) {
+  const navigate = useNavigate();
   const [gacha, setGacha] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -88,6 +90,21 @@ export default function UserGachaDetail({ gachaId, onBack }) {
     return gacha?.items?.length || 0;
   };
 
+  const getTotalStockInfo = () => {
+    if (!gacha?.items) return { remaining: 0, initial: 0 };
+    const remaining = gacha.items.reduce((sum, item) => sum + (parseInt(item.stock) || 0), 0);
+    const initial = gacha.items.reduce((sum, item) => sum + (parseInt(item.initial_stock) || 0), 0);
+    return { remaining, initial };
+  };
+
+  const handleBackClick = () => {
+    if (onBack) {
+      onBack(); // プロパティとして渡された関数があれば使用
+    } else {
+      navigate('/gacha'); // デフォルトでガチャ一覧に戻る
+    }
+  };
+
   const canDraw = (count = 1) => {
     return getAvailableItemsCount() >= count;
   };
@@ -149,7 +166,7 @@ export default function UserGachaDetail({ gachaId, onBack }) {
           </Alert>
           <Button
             variant="contained"
-            onClick={onBack}
+            onClick={handleBackClick}
             startIcon={<ArrowBackIcon />}
           >
             一覧に戻る
@@ -209,7 +226,7 @@ export default function UserGachaDetail({ gachaId, onBack }) {
           >
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
               <IconButton
-                onClick={onBack}
+                onClick={handleBackClick}
                 sx={{
                   background: theme.palette.primary.main,
                   color: 'white',
@@ -287,6 +304,11 @@ export default function UserGachaDetail({ gachaId, onBack }) {
               <Chip
                 label={`在庫あり: ${getAvailableItemsCount()}種類`}
                 color={getAvailableItemsCount() > 0 ? "success" : "error"}
+                variant="outlined"
+              />
+              <Chip
+                label={`総在庫: ${getTotalStockInfo().remaining} / ${getTotalStockInfo().initial}個`}
+                color="primary"
                 variant="outlined"
               />
             </Stack>
@@ -427,12 +449,12 @@ export default function UserGachaDetail({ gachaId, onBack }) {
                                 color: item.stock === 0 ? theme.palette.error.main : theme.palette.success.main
                               }}
                             >
-                              {item.stock}個
+                              {item.stock} / {item.initial_stock}個
                             </Typography>
                           </Box>
                           <LinearProgress
                             variant="determinate"
-                            value={item.stock > 0 ? 100 : 0}
+                            value={item.initial_stock > 0 ? (item.stock / item.initial_stock) * 100 : 0}
                             sx={{
                               height: 6,
                               borderRadius: 3,

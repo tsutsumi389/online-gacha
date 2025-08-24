@@ -110,7 +110,7 @@ function App() {
   // ルートコンポーネントのラッパー
   const GachaDetailWrapper = () => {
     const { id } = useParams();
-    return <UserGachaDetail gachaId={id} onBack={() => navigate('/gacha-list')} />;
+    return <UserGachaDetail gachaId={id} />;
   };
 
   const GachaEditWrapper = () => {
