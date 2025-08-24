@@ -522,6 +522,7 @@ class Gacha {
       }
 
       // 在庫のあるアイテムのみをフィルタ（動的計算された残り在庫を使用）
+      // stockは「初期在庫 - gacha_resultsテーブルの排出数」で動的計算された値
       const availableItems = gacha.items.filter(item => 
         item.stock === null || item.stock > 0
       );
@@ -534,7 +535,9 @@ class Gacha {
       const randomIndex = Math.floor(Math.random() * availableItems.length);
       const selectedItem = availableItems[randomIndex];
 
-      // ガチャ結果を記録（在庫は gacha_results テーブルの履歴から動的計算されるため、stockカラムは更新しない）
+      // ガチャ結果をgacha_resultsテーブルに記録
+      // 注意: gacha_items.stockカラムは更新しない（初期在庫として固定）
+      // 残り在庫は gacha_results テーブルの履歴から動的計算される
       const resultQuery = `
         INSERT INTO gacha_results (user_id, gacha_id, gacha_item_id)
         VALUES ($1, $2, $3)

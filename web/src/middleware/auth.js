@@ -23,7 +23,12 @@ export const authenticate = (fastify) => {
         return reply.code(401).send({ error: 'User not found' });
       }
       
-      request.user = decoded;
+      // request.userに適切なフィールドを設定
+      request.user = {
+        id: decoded.userId,
+        userId: decoded.userId,
+        ...decoded
+      };
     } catch (err) {
       reply.code(401).send({ error: 'Unauthorized' });
     }
