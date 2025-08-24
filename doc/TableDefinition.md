@@ -84,7 +84,7 @@
 | description      | TEXT         |                | 商品説明       |
 | image_url        | VARCHAR(255) |                | 商品画像URL（後方互換性のため残存） |
 | item_image_id    | INTEGER      | FOREIGN KEY    | アイテム画像ID（新） |
-| stock            | INTEGER      |                | 在庫数         |
+| stock            | INTEGER      |                | 初期在庫数。この値は不変。 |
 | is_public        | BOOLEAN      | NOT NULL, DEFAULT TRUE | 公開/非公開  |
 | created_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 作成日時       |
 | updated_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 更新日時       |
@@ -181,10 +181,20 @@
 | カラム名         | 型           | 制約           | 説明           |
 |------------------|--------------|----------------|----------------|
 | id               | SERIAL       | PRIMARY KEY    | 履歴ID         |
-| user_id          | INTEGER      | FOREIGN KEY    | ユーザーID     |
-| gacha_id         | INTEGER      | FOREIGN KEY    | ガチャID       |
-| gacha_item_id    | INTEGER      | FOREIGN KEY    | 当選商品ID     |
-| executed_at      | TIMESTAMP    | NOT NULL       | 実行日時       |
+| user_id          | INTEGER      | FOREIGN KEY (users.id) | ユーザーID     |
+| gacha_id         | INTEGER      | FOREIGN KEY (gachas.id) | ガチャID       |
+| gacha_item_id    | INTEGER      | FOREIGN KEY (gacha_items.id) | 当選商品ID     |
+| executed_at      | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 実行日時       |
+
+**制約**:
+- FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+- FOREIGN KEY (gacha_id) REFERENCES gachas(id) ON DELETE CASCADE
+- FOREIGN KEY (gacha_item_id) REFERENCES gacha_items(id) ON DELETE CASCADE
+
+**インデックス**:
+- `gacha_results_user_id_idx` (user_id)
+- `gacha_results_gacha_id_idx` (gacha_id)
+- `gacha_results_gacha_item_id_idx` (gacha_item_id)
 
 ## admin_operation_logs（ユーザー操作ログ）
 | カラム名         | 型           | 制約           | 説明           |
