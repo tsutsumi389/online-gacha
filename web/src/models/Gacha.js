@@ -76,7 +76,7 @@ class Gacha {
       // 検索条件を追加
       if (search) {
         paramCount++;
-        query += ` AND (g.name ILIKE ${paramCount} OR g.description ILIKE ${paramCount})`;
+        query += ` AND (g.name ILIKE $${paramCount} OR g.description ILIKE $${paramCount})`;
         params.push(`%${search}%`);
       }
 
