@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Button, Grid, Card, CardContent, CardMedia, 
   Container, Chip, LinearProgress, Badge, IconButton, Paper,
@@ -22,6 +23,7 @@ import { handleApiError } from './utils/api';
 import GachaPerformance from './GachaPerformance';
 
 export default function UserGachaDetail({ gachaId, onBack }) {
+  const navigate = useNavigate();
   const [gacha, setGacha] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -95,6 +97,14 @@ export default function UserGachaDetail({ gachaId, onBack }) {
     return { remaining, initial };
   };
 
+  const handleBackClick = () => {
+    if (onBack) {
+      onBack(); // プロパティとして渡された関数があれば使用
+    } else {
+      navigate('/gacha'); // デフォルトでガチャ一覧に戻る
+    }
+  };
+
   const canDraw = (count = 1) => {
     return getAvailableItemsCount() >= count;
   };
@@ -156,7 +166,7 @@ export default function UserGachaDetail({ gachaId, onBack }) {
           </Alert>
           <Button
             variant="contained"
-            onClick={onBack}
+            onClick={handleBackClick}
             startIcon={<ArrowBackIcon />}
           >
             一覧に戻る
@@ -216,7 +226,7 @@ export default function UserGachaDetail({ gachaId, onBack }) {
           >
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
               <IconButton
-                onClick={onBack}
+                onClick={handleBackClick}
                 sx={{
                   background: theme.palette.primary.main,
                   color: 'white',
