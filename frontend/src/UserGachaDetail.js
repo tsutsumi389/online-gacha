@@ -88,6 +88,13 @@ export default function UserGachaDetail({ gachaId, onBack }) {
     return gacha?.items?.length || 0;
   };
 
+  const getTotalStockInfo = () => {
+    if (!gacha?.items) return { remaining: 0, initial: 0 };
+    const remaining = gacha.items.reduce((sum, item) => sum + (parseInt(item.stock) || 0), 0);
+    const initial = gacha.items.reduce((sum, item) => sum + (parseInt(item.initial_stock) || 0), 0);
+    return { remaining, initial };
+  };
+
   const canDraw = (count = 1) => {
     return getAvailableItemsCount() >= count;
   };
@@ -289,6 +296,11 @@ export default function UserGachaDetail({ gachaId, onBack }) {
                 color={getAvailableItemsCount() > 0 ? "success" : "error"}
                 variant="outlined"
               />
+              <Chip
+                label={`総在庫: ${getTotalStockInfo().remaining} / ${getTotalStockInfo().initial}個`}
+                color="primary"
+                variant="outlined"
+              />
             </Stack>
 
             {gacha.display_from && gacha.display_to && (
@@ -427,12 +439,12 @@ export default function UserGachaDetail({ gachaId, onBack }) {
                                 color: item.stock === 0 ? theme.palette.error.main : theme.palette.success.main
                               }}
                             >
-                              {item.stock}個
+                              {item.stock} / {item.initial_stock}個
                             </Typography>
                           </Box>
                           <LinearProgress
                             variant="determinate"
-                            value={item.stock > 0 ? 100 : 0}
+                            value={item.initial_stock > 0 ? (item.stock / item.initial_stock) * 100 : 0}
                             sx={{
                               height: 6,
                               borderRadius: 3,
