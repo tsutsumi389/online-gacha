@@ -32,6 +32,9 @@ import {
   Security,
   CheckCircleOutline,
   InfoOutlined,
+  PhotoCamera,
+  Delete,
+  AccountCircle,
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -40,6 +43,15 @@ import { authAPI } from './utils/api';
 
 // バリデーションスキーマ
 const profileValidationSchema = yup.object({
+  avatarFile: yup
+    .mixed()
+    .nullable()
+    .test('fileSize', '画像ファイルは5MB以下にしてください', (value) => {
+      return !value || value.size <= 5 * 1024 * 1024; // 5MB
+    })
+    .test('fileType', 'JPEG、PNG、GIF形式のファイルを選択してください', (value) => {
+      return !value || ['image/jpeg', 'image/png', 'image/gif'].includes(value.type);
+    }),
   name: yup
     .string()
     .test('name-validation', 'ユーザー名は2文字以上64文字以下で入力してください', function(value) {
@@ -83,6 +95,9 @@ const UserProfile = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarDeleting, setAvatarDeleting] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [showPasswords, setShowPasswords] = useState({
     current: false,
@@ -106,6 +121,7 @@ const UserProfile = () => {
   } = useForm({
     resolver: yupResolver(profileValidationSchema),
     defaultValues: {
+      avatarFile: null,
       name: '',
       email: '',
       currentPassword: '',
@@ -139,11 +155,12 @@ const UserProfile = () => {
 
   // 変更検知
   const detectChanges = useCallback(() => {
+    const hasAvatarChange = watchedValues.avatarFile !== null;
     const hasNameChange = watchedValues.name?.trim() !== '';
     const hasEmailChange = watchedValues.email?.trim() !== '';
     const hasPasswordChange = watchedValues.newPassword?.trim() !== '';
     
-    setHasChanges(hasNameChange || hasEmailChange || hasPasswordChange);
+    setHasChanges(hasAvatarChange || hasNameChange || hasEmailChange || hasPasswordChange);
   }, [watchedValues]);
 
   useEffect(() => {
@@ -158,6 +175,79 @@ const UserProfile = () => {
     }));
   };
 
+  // アバターファイル選択
+  const handleAvatarFileChange = (event, onChange) => {
+    const file = event.target.files[0];
+    if (file) {
+      // プレビュー用のURL生成
+      const previewUrl = URL.createObjectURL(file);
+      setAvatarPreview(previewUrl);
+      onChange(file);
+    }
+  };
+
+  // アバターアップロード
+  const handleAvatarUpload = async (file) => {
+    if (!file) return null;
+
+    setAvatarUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const response = await authAPI.uploadAvatar(formData);
+      
+      // 成功メッセージは呼び出し元で表示するため、ここでは表示しない
+      return response.avatarImage.id;
+    } catch (error) {
+      console.error('アバターアップロードエラー:', error);
+      setSnackbar({
+        open: true,
+        message: 'アバターのアップロードに失敗しました',
+        severity: 'error'
+      });
+      throw error;
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  // アバター削除
+  const handleAvatarDelete = async () => {
+    setAvatarDeleting(true);
+    try {
+      await authAPI.deleteAvatar();
+      
+      // ユーザー情報を再取得
+      const response = await authAPI.getCurrentUser();
+      setUser(response.user);
+      
+      setSnackbar({
+        open: true,
+        message: 'アバターが削除されました',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('アバター削除エラー:', error);
+      setSnackbar({
+        open: true,
+        message: 'アバターの削除に失敗しました',
+        severity: 'error'
+      });
+    } finally {
+      setAvatarDeleting(false);
+    }
+  };
+
+  // アバタープレビューのクリーンアップ
+  useEffect(() => {
+    return () => {
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+    };
+  }, [avatarPreview]);
+
   // フォーム送信処理
   const onSubmit = async (formValues) => {
     setSaving(true);
@@ -166,6 +256,14 @@ const UserProfile = () => {
     try {
       // 変更されたフィールドのみを送信データに含める
       const updateData = {};
+      let avatarChanged = false;
+      
+      // アバターファイルがある場合は先にアップロード
+      if (formValues.avatarFile) {
+        const avatarImageId = await handleAvatarUpload(formValues.avatarFile);
+        updateData.avatarImageId = avatarImageId;
+        avatarChanged = true;
+      }
       
       if (formValues.name?.trim()) {
         updateData.name = formValues.name.trim();
@@ -178,6 +276,37 @@ const UserProfile = () => {
       if (formValues.newPassword?.trim()) {
         updateData.currentPassword = formValues.currentPassword;
         updateData.newPassword = formValues.newPassword;
+      }
+
+      // アバターのみの変更の場合は、アップロードで既に完了している
+      if (avatarChanged && Object.keys(updateData).length === 1) {
+        // アバターのみの変更の場合、ユーザー情報を再取得
+        const response = await authAPI.getCurrentUser();
+        setUser(response.user);
+        
+        // フォームをリセット
+        reset({
+          avatarFile: null,
+          name: '',
+          email: '',
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+
+        // アバタープレビューをクリア
+        if (avatarPreview) {
+          URL.revokeObjectURL(avatarPreview);
+          setAvatarPreview(null);
+        }
+
+        setSnackbar({
+          open: true,
+          message: 'プロフィールが正常に更新されました',
+          severity: 'success'
+        });
+        
+        return;
       }
 
       // 何も変更されていない場合は送信しない
@@ -197,12 +326,19 @@ const UserProfile = () => {
       
       // フォームをリセット
       reset({
+        avatarFile: null,
         name: '',
         email: '',
         currentPassword: '',
         newPassword: '',
         confirmPassword: ''
       });
+
+      // アバタープレビューをクリア
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+        setAvatarPreview(null);
+      }
       
       // 成功メッセージ
       const changedFieldsJapanese = response.changedFields.map(field => {
@@ -308,6 +444,154 @@ const UserProfile = () => {
               
               <Box component="form" onSubmit={handleSubmit(onSubmit)}>
                 <Grid container spacing={4}>
+                  {/* ユーザーアバター変更セクション */}
+                  <Grid item xs={12}>
+                    <Box sx={{ 
+                      p: 3, 
+                      borderRadius: 2, 
+                      bgcolor: alpha(theme.palette.secondary.main, 0.02),
+                      border: `1px solid ${alpha(theme.palette.secondary.main, 0.08)}`
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                        <PhotoCamera color="secondary" sx={{ mr: 1 }} />
+                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                          ユーザーアイコン変更
+                        </Typography>
+                      </Box>
+                      
+                      <Grid container spacing={3} alignItems="center">
+                        <Grid item xs={12} sm={4}>
+                          <Box sx={{ textAlign: 'center' }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                              現在のアイコン
+                            </Typography>
+                            <Box
+                              sx={{
+                                width: 120,
+                                height: 120,
+                                borderRadius: '50%',
+                                overflow: 'hidden',
+                                border: `3px solid ${alpha(theme.palette.secondary.main, 0.2)}`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                mx: 'auto',
+                                bgcolor: alpha(theme.palette.secondary.main, 0.1)
+                              }}
+                            >
+                              {user?.avatarImageUrl ? (
+                                <img
+                                  src={user.avatarImageUrl}
+                                  alt="Current Avatar"
+                                  style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover'
+                                  }}
+                                />
+                              ) : (
+                                <AccountCircle 
+                                  sx={{ 
+                                    fontSize: 80, 
+                                    color: alpha(theme.palette.secondary.main, 0.5) 
+                                  }} 
+                                />
+                              )}
+                            </Box>
+                          </Box>
+                        </Grid>
+                        
+                        <Grid item xs={12} sm={4}>
+                          {avatarPreview && (
+                            <Box sx={{ textAlign: 'center' }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                新しいアイコン（プレビュー）
+                              </Typography>
+                              <Box
+                                sx={{
+                                  width: 120,
+                                  height: 120,
+                                  borderRadius: '50%',
+                                  overflow: 'hidden',
+                                  border: `3px solid ${theme.palette.primary.main}`,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  mx: 'auto'
+                                }}
+                              >
+                                <img
+                                  src={avatarPreview}
+                                  alt="Avatar Preview"
+                                  style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover'
+                                  }}
+                                />
+                              </Box>
+                            </Box>
+                          )}
+                        </Grid>
+                        
+                        <Grid item xs={12} sm={4}>
+                          <Box sx={{ textAlign: 'center' }}>
+                            <Controller
+                              name="avatarFile"
+                              control={control}
+                              render={({ field: { onChange, ...field } }) => (
+                                <Box>
+                                  <input
+                                    accept="image/jpeg,image/png,image/gif"
+                                    style={{ display: 'none' }}
+                                    id="avatar-upload"
+                                    type="file"
+                                    onChange={(e) => handleAvatarFileChange(e, onChange)}
+                                  />
+                                  <label htmlFor="avatar-upload">
+                                    <Button
+                                      component="span"
+                                      variant="outlined"
+                                      startIcon={<PhotoCamera />}
+                                      disabled={avatarUploading}
+                                      sx={{ mb: 1, width: '100%' }}
+                                    >
+                                      画像選択
+                                    </Button>
+                                  </label>
+                                  {user?.avatarImageUrl && (
+                                    <Button
+                                      variant="outlined"
+                                      color="error"
+                                      startIcon={<Delete />}
+                                      onClick={handleAvatarDelete}
+                                      disabled={avatarDeleting}
+                                      sx={{ width: '100%' }}
+                                    >
+                                      {avatarDeleting ? (
+                                        <CircularProgress size={16} />
+                                      ) : (
+                                        '削除'
+                                      )}
+                                    </Button>
+                                  )}
+                                </Box>
+                              )}
+                            />
+                            {errors.avatarFile && (
+                              <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+                                {errors.avatarFile.message}
+                              </Typography>
+                            )}
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                              JPEG/PNG/GIF（最大5MB）
+                            </Typography>
+                          </Box>
+                        </Grid>
+                      </Grid>
+                    </Box>
+                  </Grid>
+
                   {/* ユーザー名変更セクション */}
                   <Grid item xs={12}>
                     <Box sx={{ 

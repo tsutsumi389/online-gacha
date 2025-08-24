@@ -416,3 +416,163 @@ export async function retryFailedProcessing(db) {
     throw new Error(`Failed to retry processing: ${error.message}`);
   }
 }
+
+/**
+ * ユーザーアバター用画像サイズ設定
+ */
+const AVATAR_SIZES = {
+  avatar_32: { width: 32, height: 32 },
+  avatar_64: { width: 64, height: 64 },
+  avatar_128: { width: 128, height: 128 },
+  avatar_256: { width: 256, height: 256 }
+};
+
+/**
+ * ユーザーアバター画像処理
+ * @param {number} userId - ユーザーID
+ * @param {Object} fileData - ファイルデータ（Fastify multipart）
+ * @returns {Object} 処理結果
+ */
+export async function processUserAvatar(userId, fileData) {
+  const database = (await import('../config/database.js')).default;
+  
+  try {
+    // ファイルデータを読み込み
+    const buffer = await fileData.file.readAsBuffer ? 
+      await fileData.file.readAsBuffer() :
+      await streamToBuffer(fileData.file);
+
+    // 画像メタデータ取得
+    const metadata = await getImageMetadata(buffer);
+    
+    // ベースオブジェクトキー生成
+    const baseObjectKey = `user-avatars/users/${userId}/${Date.now()}_${uuidv4()}`;
+    
+    // データベースにuser_avatar_imagesレコード作成
+    const imageResult = await database.query(`
+      INSERT INTO user_avatar_images (
+        user_id, original_filename, base_object_key, 
+        original_size, original_mime_type, processing_status
+      ) VALUES ($1, $2, $3, $4, $5, 'processing')
+      RETURNING id
+    `, [
+      userId,
+      fileData.filename,
+      baseObjectKey,
+      buffer.length,
+      fileData.mimetype
+    ]);
+
+    const avatarImageId = imageResult.rows[0].id;
+    const variants = {};
+
+    try {
+      // 各サイズのバリアント生成
+      for (const [sizeType, dimensions] of Object.entries(AVATAR_SIZES)) {
+        const processedBuffer = await sharp(buffer)
+          .resize(dimensions.width, dimensions.height, {
+            fit: 'cover',
+            position: 'center'
+          })
+          .avif({
+            quality: 85,
+            effort: 4
+          })
+          .toBuffer();
+
+        const objectKey = `${baseObjectKey}_${sizeType}.avif`;
+        const uploadResult = await uploadFile(objectKey, processedBuffer, 'image/avif');
+        const imageUrl = uploadResult.url;
+
+        // データベースにバリアント情報を保存
+        await database.query(`
+          INSERT INTO user_avatar_variants (
+            user_avatar_image_id, size_type, object_key, 
+            image_url, file_size, width, height
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [
+          avatarImageId,
+          sizeType,
+          objectKey,
+          imageUrl,
+          processedBuffer.length,
+          dimensions.width,
+          dimensions.height
+        ]);
+
+        variants[sizeType] = imageUrl;
+      }
+
+      // 処理完了状態に更新
+      await database.query(
+        'UPDATE user_avatar_images SET processing_status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+        ['completed', avatarImageId]
+      );
+
+      return {
+        id: avatarImageId,
+        originalFilename: fileData.filename,
+        processingStatus: 'completed',
+        variants
+      };
+
+    } catch (processingError) {
+      // 処理失敗状態に更新
+      await database.query(
+        'UPDATE user_avatar_images SET processing_status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+        ['failed', avatarImageId]
+      );
+      throw processingError;
+    }
+
+  } catch (error) {
+    throw new Error(`Avatar processing failed: ${error.message}`);
+  }
+}
+
+/**
+ * ユーザーアバター削除
+ * @param {number} userId - ユーザーID
+ * @param {number} avatarImageId - アバター画像ID
+ */
+export async function deleteUserAvatar(userId, avatarImageId) {
+  const database = (await import('../config/database.js')).default;
+  const minio = (await import('./minio.js'));
+  
+  try {
+    // バリアント情報取得
+    const variantsResult = await database.query(
+      'SELECT object_key FROM user_avatar_variants WHERE user_avatar_image_id = $1',
+      [avatarImageId]
+    );
+
+    // MinIOからファイル削除
+    const deletePromises = variantsResult.rows.map(variant => 
+      minio.deleteFile(variant.object_key).catch(err => {
+        console.warn(`Failed to delete avatar file ${variant.object_key}:`, err);
+      })
+    );
+
+    await Promise.allSettled(deletePromises);
+
+    // データベースからレコード削除（CASCADE設定により関連レコードも自動削除）
+    await database.query(
+      'DELETE FROM user_avatar_images WHERE id = $1 AND user_id = $2',
+      [avatarImageId, userId]
+    );
+
+  } catch (error) {
+    throw new Error(`Avatar deletion failed: ${error.message}`);
+  }
+}
+
+/**
+ * ストリームをバッファに変換
+ */
+async function streamToBuffer(stream) {
+  const chunks = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
