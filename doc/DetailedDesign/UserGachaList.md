@@ -32,6 +32,7 @@
 - **説明**: gachas.description
 - **価格**: gachas.price
 - **作成者**: users.name（作成者情報）
+- **作成者アイコン**: user_avatar_variants.image_url（64px サイズ、AVIF形式）**【✅ 実装完了】**
 - **評価**: 集計データ（rating）
 - **プレイ数**: 集計データ（totalPlays）
 - **画像**: 複数画像対応（レスポンシブ表示、AVIF/WebP/JPEG自動選択）
@@ -61,6 +62,7 @@
           "created_at": "2025-08-21T12:00:00.000Z",
           "updated_at": "2025-08-21T12:00:00.000Z",
           "creator_name": "作成者名",
+          "creator_avatar_url": "https://minio:9000/gacha-images/user-avatars/users/1/avatar_64.avif",
           "item_count": "3",
           "play_count": "0"
         }
@@ -110,6 +112,23 @@
   - `rating`: 評価順（将来実装）
 - **ソート順**: `asc`（昇順）, `desc`（降順、デフォルト）
 
+## 5.3 ユーザーアイコン機能の仕様**【✅ 実装完了】**
+- **バックエンド実装**:
+  - Gachaモデル `findActiveWithFilters()` メソッドでアイコン情報をJOIN取得
+  - Gachaモデル `getPopular()` メソッドでもアイコン情報を含む
+  - SQLクエリに `user_avatar_images` と `user_avatar_variants` テーブルをJOIN
+  - レスポンスに `creator_avatar_url` フィールドを追加
+
+- **フロントエンド実装**:
+  - `gacha.creator_avatar_url` プロパティを使用してアバター表示
+  - Material-UI `Avatar` コンポーネントで32px×32pxサイズ表示
+  - アイコン未設定時は作成者名の頭文字をフォールバック表示
+
+- **画像仕様**:
+  - 64px サイズのAVIF形式画像を使用
+  - Sharp.js による高品質・高圧縮変換
+  - MinIO S3互換ストレージから配信
+
 ## 6. バリデーション・UX
 - ローディング状態の表示
 - エラーハンドリング（APIエラー、ネットワークエラー）
@@ -126,6 +145,19 @@
 - 公開されたガチャのみ表示（is_public = true）
 - 公開期間内のガチャのみ表示（display_from ～ display_to）**【🚧 部分実装】**
 - 作成者情報の取得（usersテーブルとJOIN）**【✅ 実装完了】**
+- **作成者アイコン情報の取得（user_avatar_imagesテーブルとuser_avatar_variantsテーブルJOIN）**【✅ 実装完了】**
+
+### 7.1 作成者アイコン表示仕様**【✅ 実装完了】**
+- **取得データ**: user_avatar_variants.image_url (size_type='avatar_64')
+- **表示サイズ**: 32px × 32px（Material-UI Avatar コンポーネント）
+- **形式**: AVIF形式（Sharp.js処理済み）
+- **フォールバック**: アイコン未設定時は作成者名の頭文字を表示
+- **データベース構造**:
+  ```sql
+  LEFT JOIN user_avatar_images uai ON u.avatar_image_id = uai.id
+  LEFT JOIN user_avatar_variants uav_64 ON uai.id = uav_64.user_avatar_image_id 
+    AND uav_64.size_type = 'avatar_64'
+  ```
 
 ## 8. 技術仕様
 - **フロントエンド**: React 18 + Material-UI v5
@@ -134,7 +166,16 @@
 - **アニメーション**: Framer Motion
 - **画像表示**: Swiper.js + レスポンシブ画像選択ロジック
 - **画像最適化**: Sharp.js処理済み画像（AVIF/WebP/JPEG、4サイズ対応）
+- **ユーザーアイコン**: Sharp.js処理済みAVIF画像（4サイズ：32px/64px/128px/256px）**【✅ 実装完了】**
 - **レスポンシブ**: Material-UI Grid System + Picture要素
+
+### 8.1 ユーザーアイコン技術詳細**【✅ 実装完了】**
+- **画像処理**: Sharp.js による自動リサイズ・AVIF変換
+- **ストレージ**: MinIO S3互換ストレージ
+- **オブジェクトキー**: `user-avatars/users/{userId}/{timestamp}_{uuid}_avatar_64.avif`
+- **表示コンポーネント**: Material-UI Avatar
+- **フロントエンド実装**: `gacha.creator_avatar_url` プロパティを使用
+- **エラーハンドリング**: 画像読み込み失敗時は頭文字フォールバック
 
 ## 9. エラーハンドリング
 - ネットワークエラー時の再試行機能
@@ -146,6 +187,7 @@
 - 画像遅延読み込み（Intersection Observer API）
 - レスポンシブ画像配信（Picture要素 + srcset）
 - AVIF/WebP対応ブラウザでの高圧縮画像配信
+- **ユーザーアイコンAVIF配信**（50%以上の圧縮率向上）**【✅ 実装完了】**
 - 仮想スクロール（大量データ対応）
 - APIレスポンスキャッシュ
 - 検索デバウンス処理
