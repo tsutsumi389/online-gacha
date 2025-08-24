@@ -52,6 +52,7 @@ class Gacha {
           u.name as creator_name,
           uav_64.image_url as creator_avatar_url,
           (SELECT SUM(GREATEST(gi.stock - COALESCE((SELECT COUNT(*) FROM gacha_results gr WHERE gr.gacha_item_id = gi.id), 0), 0)) FROM gacha_items gi WHERE gi.gacha_id = g.id) as item_count,
+          (SELECT SUM(gi.stock) FROM gacha_items gi WHERE gi.gacha_id = g.id) as initial_stock_total,
           (SELECT COUNT(*) FROM gacha_results gr WHERE gr.gacha_id = g.id) as play_count,
           main_img.base_object_key as main_image_base_key,
           main_img.original_filename as main_image_filename,
@@ -159,6 +160,7 @@ class Gacha {
           uav_64.image_url as creator_avatar_url,
           COUNT(gr.id) as play_count,
           (SELECT SUM(GREATEST(gi.stock - COALESCE((SELECT COUNT(*) FROM gacha_results gr2 WHERE gr2.gacha_item_id = gi.id), 0), 0)) FROM gacha_items gi WHERE gi.gacha_id = g.id) as item_count,
+          (SELECT SUM(gi.stock) FROM gacha_items gi WHERE gi.gacha_id = g.id) as initial_stock_total,
           main_img.base_object_key as main_image_base_key,
           main_img.processing_status as main_image_status
         FROM gachas g
@@ -271,6 +273,7 @@ class Gacha {
           g.created_at,
           g.updated_at,
           (SELECT SUM(GREATEST(gi.stock - COALESCE((SELECT COUNT(*) FROM gacha_results gr WHERE gr.gacha_item_id = gi.id), 0), 0)) FROM gacha_items gi WHERE gi.gacha_id = g.id) as item_count,
+          (SELECT SUM(gi.stock) FROM gacha_items gi WHERE gi.gacha_id = g.id) as initial_stock_total,
           (SELECT COUNT(*) FROM gacha_results gr WHERE gr.gacha_id = g.id) as play_count,
           main_img.base_object_key as main_image_base_key,
           main_img.original_filename as main_image_filename,
