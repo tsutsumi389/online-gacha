@@ -1,4 +1,5 @@
 // 認証ミドルウェア
+import User from '../models/User.js';
 
 // JWT認証ミドルウェア
 export const authenticate = (fastify) => {
@@ -13,6 +14,15 @@ export const authenticate = (fastify) => {
 
       // トークンの検証（roleフィールドなし）
       const decoded = fastify.jwt.verify(token);
+      
+      // ユーザーが実際に存在するか確認
+      const user = await User.findById(decoded.userId);
+      if (!user) {
+        // ユーザーが存在しない場合はCookieをクリア
+        reply.clearCookie('token');
+        return reply.code(401).send({ error: 'User not found' });
+      }
+      
       request.user = decoded;
     } catch (err) {
       reply.code(401).send({ error: 'Unauthorized' });
