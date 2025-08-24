@@ -24,6 +24,7 @@ export default async function gachaRoutes(fastify, options) {
 
       const {
         search,
+        filter,
         sortBy,
         sortOrder,
         page,
@@ -33,6 +34,7 @@ export default async function gachaRoutes(fastify, options) {
       // ガチャデータを取得
       const gachas = await Gacha.findActiveWithFilters({
         search,
+        filter,
         sortBy,
         sortOrder,
         page,

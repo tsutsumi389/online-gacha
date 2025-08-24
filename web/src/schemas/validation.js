@@ -132,6 +132,9 @@ export const gachaListQuerySchema = Joi.object({
   search: Joi.string().max(100).optional().allow('').messages({
     'string.max': '検索キーワードは100文字以下で入力してください'
   }),
+  filter: Joi.string().valid('all', 'inStock', 'endingSoon').default('all').messages({
+    'any.only': 'フィルターの値が不正です'
+  }),
   sortBy: Joi.string().valid('name', 'price', 'created_at', 'popularity', 'rating').default('created_at').messages({
     'any.only': 'ソート項目が不正です'
   }),

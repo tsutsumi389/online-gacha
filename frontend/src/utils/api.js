@@ -118,7 +118,7 @@ export const gachaAPI = {
   getGachas: async (params = {}) => {
     const queryParams = new URLSearchParams();
     if (params.search) queryParams.append('search', params.search);
-    if (params.category) queryParams.append('category', params.category);
+    if (params.filter) queryParams.append('filter', params.filter);
     if (params.sortBy) queryParams.append('sortBy', params.sortBy);
     if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
     if (params.page) queryParams.append('page', params.page);
