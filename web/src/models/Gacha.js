@@ -270,6 +270,8 @@ class Gacha {
           g.description,
           g.price,
           g.is_public,
+          g.display_from,
+          g.display_to,
           g.created_at,
           g.updated_at,
           (SELECT SUM(GREATEST(gi.stock - COALESCE((SELECT COUNT(*) FROM gacha_results gr WHERE gr.gacha_item_id = gi.id), 0), 0)) FROM gacha_items gi WHERE gi.gacha_id = g.id) as item_count,

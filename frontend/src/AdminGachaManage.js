@@ -133,11 +133,23 @@ export default function AdminGachaManage() {
                         />
                       </TableCell>
                       <TableCell>
-                        {gacha.displayFrom && gacha.displayTo ? (
-                          `${gacha.displayFrom} ～ ${gacha.displayTo}`
-                        ) : (
-                          '期間設定なし'
-                        )}
+                        {(() => {
+                          const toDate = (val) => {
+                            if (!val) return '';
+                            const d = new Date(val);
+                            if (isNaN(d.getTime())) return '';
+                            return d.toISOString().slice(0, 10);
+                          };
+                          if (gacha.displayFrom && gacha.displayTo) {
+                            return `${toDate(gacha.displayFrom)} ～ ${toDate(gacha.displayTo)}`;
+                          } else if (gacha.displayFrom) {
+                            return `${toDate(gacha.displayFrom)} ～`;
+                          } else if (gacha.displayTo) {
+                            return `～ ${toDate(gacha.displayTo)}`;
+                          } else {
+                            return '期間設定なし';
+                          }
+                        })()}
                       </TableCell>
                       <TableCell>
                         {gacha.itemCount || 0} 個
