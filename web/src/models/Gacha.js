@@ -34,6 +34,7 @@ class Gacha {
     try {
       const {
         search,
+        filter = 'all',
         sortBy = 'created_at',
         sortOrder = 'desc',
         page = 1,
@@ -75,11 +76,21 @@ class Gacha {
       // 検索条件を追加
       if (search) {
         paramCount++;
-        query += ` AND (g.name ILIKE $${paramCount} OR g.description ILIKE $${paramCount})`;
+        query += ` AND (g.name ILIKE ${paramCount} OR g.description ILIKE ${paramCount})`;
         params.push(`%${search}%`);
       }
 
+      // フィルター条件を追加
+      if (filter === 'endingSoon') {
+        query += ` AND g.display_to BETWEEN NOW() AND NOW() + INTERVAL '3 days'`;
+      }
+
       query += ` GROUP BY g.id, u.name, uav_64.image_url, main_img.base_object_key, main_img.original_filename, main_img.processing_status`;
+
+      // 在庫ありフィルター
+      if (filter === 'inStock') {
+        query += ` HAVING (SELECT SUM(GREATEST(gi.stock - COALESCE((SELECT COUNT(*) FROM gacha_results gr WHERE gr.gacha_item_id = gi.id), 0), 0)) FROM gacha_items gi WHERE gi.gacha_id = g.id) > 0`;
+      }
 
       // ソート条件を追加
       const allowedSortColumns = ['created_at', 'name', 'price', 'play_count'];

@@ -139,20 +139,24 @@ export default function UserGachaList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [favorites, setFavorites] = useState(new Set());
-  const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('popular');
   const [gachas, setGachas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [filter, setFilter] = useState('all');
 
-  const categories = ['all', 'アイテム', 'ジュエル', 'コレクション', '日用品'];
+  const filters = [
+    { key: 'all', label: 'すべて' },
+    { key: 'inStock', label: '在庫あり' },
+    { key: 'endingSoon', label: '終了が近い' },
+  ];
 
   // ガチャ一覧を取得
-  const fetchGachas = async () => {
+  const fetchGachas = async (params) => {
     try {
       setLoading(true);
       setError('');
-      const response = await gachaAPI.getGachas();
+      const response = await gachaAPI.getGachas(params);
       setGachas(response.gachas || []);
     } catch (err) {
       setError(handleApiError(err));
@@ -162,17 +166,17 @@ export default function UserGachaList() {
   };
 
   useEffect(() => {
-    fetchGachas();
-  }, []);
+    const params = {
+      filter: filter,
+      search: search,
+    };
+    const handler = setTimeout(() => {
+      fetchGachas(params);
+    }, 500); // debounce search
+    return () => clearTimeout(handler);
+  }, [filter, search]);
 
-  const filtered = gachas.filter((gacha) => {
-    const matchesSearch = gacha.name?.toLowerCase().includes(search.toLowerCase()) ||
-                         gacha.creator_name?.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || gacha.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
-
-  const sorted = [...filtered].sort((a, b) => {
+  const sorted = [...gachas].sort((a, b) => {
     switch (sortBy) {
       case 'popular':
         return (b.totalPlays || 0) - (a.totalPlays || 0);
@@ -291,13 +295,13 @@ export default function UserGachaList() {
               </Grid>
               <Grid item xs={12} md={8}>
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  {categories.map((category) => (
+                  {filters.map((item) => (
                     <Chip
-                      key={category}
-                      label={category === 'all' ? 'すべて' : category}
-                      onClick={() => setSelectedCategory(category)}
-                      color={selectedCategory === category ? 'primary' : 'default'}
-                      variant={selectedCategory === category ? 'filled' : 'outlined'}
+                      key={item.key}
+                      label={item.label}
+                      onClick={() => setFilter(item.key)}
+                      color={filter === item.key ? 'primary' : 'default'}
+                      variant={filter === item.key ? 'filled' : 'outlined'}
                       sx={{ borderRadius: 3 }}
                     />
                   ))}
