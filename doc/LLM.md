@@ -52,7 +52,7 @@ doc/              - ドキュメント
 - name (VARCHAR(128)) - ガチャ名
 - description (TEXT) - 説明
 - price (INTEGER) - 価格
-- created_by (Foreign Key to users) - 作成者
+- user_id (Foreign Key to users) - 作成者
 - is_public (BOOLEAN) - 公開状態
 - display_from (TIMESTAMP) - 表示開始日時
 - display_to (TIMESTAMP) - 表示終了日時
@@ -539,7 +539,6 @@ curl -b cookies.txt -c cookies.txt \
 - **データベース変更**:
   - マイグレーション実行: `005_remove_user_roles.sql`
   - `users.role`カラムの削除
-  - `gachas.user_id` → `gachas.created_by`へのリネーム
   - シードデータ更新: `003_no_role_user_seed.sql`
 
 - **バックエンド修正**:

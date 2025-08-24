@@ -109,14 +109,15 @@ export default function AdminGachaManage() {
                   <TableCell>価格</TableCell>
                   <TableCell>公開状態</TableCell>
                   <TableCell>表示期間</TableCell>
-                  <TableCell>アイテム数</TableCell>
+                  <TableCell>総在庫数</TableCell>
+                  <TableCell>プレイ回数</TableCell>
                   <TableCell align="right">操作</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {gachas.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} align="center">
+                    <TableCell colSpan={7} align="center">
                       ガチャがありません
                     </TableCell>
                   </TableRow>
@@ -139,7 +140,10 @@ export default function AdminGachaManage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {gacha.totalItems || gacha.total_items || 0} 個
+                        {gacha.itemCount || 0} 個
+                      </TableCell>
+                      <TableCell>
+                        {gacha.playCount || 0} 回
                       </TableCell>
                       <TableCell align="right">
                         <IconButton onClick={() => handleEdit(gacha)}>

@@ -128,6 +128,7 @@ export default async function userGachaRoutes(fastify, options) {
     try {
       // リクエストボディをログ出力
       fastify.log.info('Create gacha request body:', request.body);
+      fastify.log.info('Authenticated user:', request.user);
 
       // バリデーション
       const { error, value } = createGachaSchema.validate(request.body);
@@ -140,6 +141,8 @@ export default async function userGachaRoutes(fastify, options) {
           receivedValue: error.details[0].context.value
         });
       }
+
+      fastify.log.info('Creating gacha with userId:', request.user.userId);
 
       // ガチャ作成
       const newGacha = await Gacha.createForUser({

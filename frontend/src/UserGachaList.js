@@ -312,8 +312,8 @@ export default function UserGachaList() {
       <AnimatePresence>
         <Grid container spacing={3}>
           {sorted.map((gacha, index) => {
-            const totalStock = gacha.items ? gacha.items.reduce((sum, item) => sum + (item.stock || 0), 0) : 0;
-            const stockProgress = getStockProgress(gacha.items);
+            const totalStock = gacha.item_count || 0;
+            const stockProgress = (totalStock / 200) * 100; // 仮の最大値に対する割合
             const daysLeft = gacha.display_to ? 
               Math.ceil((new Date(gacha.display_to) - new Date()) / (1000 * 60 * 60 * 24)) : 
               30; // デフォルト値

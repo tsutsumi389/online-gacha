@@ -9,7 +9,7 @@ DOCKER_EXEC_CMD=docker compose exec web sh
 INSTALL_WEB_CMD=docker compose exec web npm install
 INSTALL_FRONTEND_CMD=docker compose exec frontend npm install
 
-.PHONY: migrate seed docker-up docker-sh install-web install-frontend install-all setup help migrate-status migrate-down migrate-sharp migrate-check
+.PHONY: migrate seed docker-up docker-sh install-web install-frontend install-all setup help migrate-status migrate-down migrate-sharp migrate-check clean
 
 setup: docker-up install-all migrate seed
 	@echo "✅ Setup completed successfully!"
@@ -18,6 +18,9 @@ setup: docker-up install-all migrate seed
 
 migrate:
 	$(MIGRATE_CMD)
+
+clean:
+	docker compose down --volumes --remove-orphans
 
 migrate-status:
 	docker compose exec db psql -U user -d gacha_db -c "SELECT name, run_on FROM migrations ORDER BY id;"
@@ -70,3 +73,4 @@ help:
 	@echo "  install-web     - Install web (backend) dependencies"
 	@echo "  install-frontend - Install frontend dependencies"
 	@echo "  install-all     - Install all dependencies (web + frontend)"
+	@echo "  clean           - Stop and remove all Docker containers, networks, and volumes"
