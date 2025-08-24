@@ -193,7 +193,7 @@ class User {
       name: this.name,
       email: this.email,
       avatarImageId: this.avatar_image_id,
-      avatarImageUrl: this.avatar_image_url,
+      avatar_url: this.avatar_image_url,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt
     };

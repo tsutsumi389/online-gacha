@@ -50,6 +50,7 @@ class Gacha {
           g.created_at,
           g.updated_at,
           u.name as creator_name,
+          uav_64.image_url as creator_avatar_url,
           (SELECT SUM(gi.stock) FROM gacha_items gi WHERE gi.gacha_id = g.id) as item_count,
           (SELECT COUNT(*) FROM gacha_results gr WHERE gr.gacha_id = g.id) as play_count,
           main_img.base_object_key as main_image_base_key,
@@ -57,6 +58,8 @@ class Gacha {
           main_img.processing_status as main_image_status
         FROM gachas g
         LEFT JOIN users u ON g.user_id = u.id
+        LEFT JOIN user_avatar_images uai ON u.avatar_image_id = uai.id
+        LEFT JOIN user_avatar_variants uav_64 ON uai.id = uav_64.user_avatar_image_id AND uav_64.size_type = 'avatar_64'
         LEFT JOIN gacha_images main_img ON g.id = main_img.gacha_id AND main_img.is_main = true
         WHERE g.is_public = true
       `;
@@ -71,7 +74,7 @@ class Gacha {
         params.push(`%${search}%`);
       }
 
-      query += ` GROUP BY g.id, u.name, main_img.base_object_key, main_img.original_filename, main_img.processing_status`;
+      query += ` GROUP BY g.id, u.name, uav_64.image_url, main_img.base_object_key, main_img.original_filename, main_img.processing_status`;
 
       // ソート条件を追加
       const allowedSortColumns = ['created_at', 'name', 'price', 'play_count'];
@@ -119,7 +122,8 @@ class Gacha {
         
         return {
           ...gacha,
-          main_image_url
+          main_image_url,
+          creator_avatar_url: gacha.creator_avatar_url
         };
       }));
       
@@ -152,15 +156,18 @@ class Gacha {
           g.price,
           g.created_at,
           u.name as creator_name,
+          uav_64.image_url as creator_avatar_url,
           COUNT(gr.id) as play_count,
           main_img.base_object_key as main_image_base_key,
           main_img.processing_status as main_image_status
         FROM gachas g
         LEFT JOIN users u ON g.user_id = u.id
+        LEFT JOIN user_avatar_images uai ON u.avatar_image_id = uai.id
+        LEFT JOIN user_avatar_variants uav_64 ON uai.id = uav_64.user_avatar_image_id AND uav_64.size_type = 'avatar_64'
         LEFT JOIN gacha_results gr ON g.id = gr.gacha_id
         LEFT JOIN gacha_images main_img ON g.id = main_img.gacha_id AND main_img.is_main = true
         WHERE g.is_public = true
-        GROUP BY g.id, u.name, main_img.base_object_key, main_img.processing_status
+        GROUP BY g.id, u.name, uav_64.image_url, main_img.base_object_key, main_img.processing_status
         ORDER BY play_count DESC
         LIMIT $1
       `;
@@ -194,7 +201,8 @@ class Gacha {
         
         return {
           ...gacha,
-          main_image_url
+          main_image_url,
+          creator_avatar_url: gacha.creator_avatar_url
         };
       }));
       

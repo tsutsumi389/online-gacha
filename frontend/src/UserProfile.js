@@ -90,7 +90,7 @@ const profileValidationSchema = yup.object({
     })
 });
 
-const UserProfile = () => {
+const UserProfile = ({ onAvatarUpdate }) => {
   const theme = useTheme();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -222,6 +222,11 @@ const UserProfile = () => {
       const response = await authAPI.getCurrentUser();
       setUser(response.user);
       
+      // ヘッダーのアバターを更新
+      if (onAvatarUpdate) {
+        onAvatarUpdate(null);
+      }
+      
       setSnackbar({
         open: true,
         message: 'アバターが削除されました',
@@ -284,6 +289,11 @@ const UserProfile = () => {
         const response = await authAPI.getCurrentUser();
         setUser(response.user);
         
+        // ヘッダーのアバターを更新
+        if (onAvatarUpdate) {
+          onAvatarUpdate(response.user.avatar_url);
+        }
+        
         // フォームをリセット
         reset({
           avatarFile: null,
@@ -323,6 +333,11 @@ const UserProfile = () => {
       
       // ユーザー情報を更新
       setUser(response.user);
+      
+      // アバターが変更された場合はヘッダーのアバターも更新
+      if (avatarChanged && onAvatarUpdate) {
+        onAvatarUpdate(response.user.avatar_url);
+      }
       
       // フォームをリセット
       reset({

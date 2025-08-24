@@ -1,6 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
-import { AppBar, Toolbar, Typography, Button, Box, CircularProgress } from '@mui/material';
+import { 
+  AppBar, 
+  Toolbar, 
+  Typography, 
+  Button, 
+  Box, 
+  CircularProgress,
+  Avatar,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  IconButton,
+  Tooltip
+} from '@mui/material';
+import {
+  Person as PersonIcon,
+  Logout as LogoutIcon
+} from '@mui/icons-material';
 import LoginForm from './LoginForm';
 import RegisterForm from './RegisterForm';
 import AdminGachaManage from './AdminGachaManage';
@@ -14,8 +33,12 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [userAvatar, setUserAvatar] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+  
+  const open = Boolean(anchorEl);
 
   // ページロード時に認証状態を復元
   useEffect(() => {
@@ -25,10 +48,12 @@ function App() {
         const response = await authAPI.getCurrentUser();
         setIsAuthenticated(true);
         setUser(response.user);
+        setUserAvatar(response.user.avatar_url);
       } catch (error) {
         // トークンが無効、または存在しない場合
         setIsAuthenticated(false);
         setUser(null);
+        setUserAvatar(null);
       } finally {
         setIsLoading(false);
       }
@@ -40,12 +65,14 @@ function App() {
   const handleLogin = (userData) => {
     setIsAuthenticated(true);
     setUser(userData);
+    setUserAvatar(userData.avatar_url);
     navigate('/'); // ログイン後はホームページにリダイレクト
   };
 
   const handleRegister = (userData) => {
     setIsAuthenticated(true);
     setUser(userData);
+    setUserAvatar(userData.avatar_url);
     navigate('/'); // 登録後はホームページにリダイレクト
   };
 
@@ -57,7 +84,27 @@ function App() {
     }
     setIsAuthenticated(false);
     setUser(null);
+    setUserAvatar(null);
+    setAnchorEl(null);
     navigate('/login');
+  };
+
+  const handleAvatarClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleProfileClick = () => {
+    handleMenuClose();
+    navigate('/profile');
+  };
+
+  const handleLogoutClick = () => {
+    handleMenuClose();
+    handleLogout();
   };
 
   // ルートコンポーネントのラッパー
@@ -109,7 +156,7 @@ function App() {
           </Typography>
           
           {isAuthenticated ? (
-            <Box sx={{ display: 'flex', gap: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Button color="inherit" onClick={() => navigate('/')}>
                 ホーム
               </Button>
@@ -119,12 +166,98 @@ function App() {
               <Button color="inherit" onClick={() => navigate('/my-gacha')}>
                 マイガチャ管理
               </Button>
-              <Button color="inherit" onClick={() => navigate('/profile')}>
-                プロフィール
-              </Button>
-              <Button color="inherit" onClick={handleLogout}>
-                ログアウト ({user?.name})
-              </Button>
+              
+              {/* ユーザーアバターアイコン */}
+              <Tooltip title="アカウントメニュー">
+                <IconButton
+                  onClick={handleAvatarClick}
+                  size="small"
+                  sx={{ ml: 1 }}
+                  aria-controls={open ? 'account-menu' : undefined}
+                  aria-haspopup="true"
+                  aria-expanded={open ? 'true' : undefined}
+                >
+                  <Avatar
+                    src={userAvatar}
+                    alt={user?.name}
+                    sx={{ 
+                      width: 32, 
+                      height: 32,
+                      bgcolor: userAvatar ? 'transparent' : 'primary.main'
+                    }}
+                  >
+                    {!userAvatar && user?.name?.charAt(0)?.toUpperCase()}
+                  </Avatar>
+                </IconButton>
+              </Tooltip>
+              
+              {/* ユーザーアバタードロップダウンメニュー */}
+              <Menu
+                anchorEl={anchorEl}
+                id="account-menu"
+                open={open}
+                onClose={handleMenuClose}
+                onClick={handleMenuClose}
+                PaperProps={{
+                  elevation: 0,
+                  sx: {
+                    overflow: 'visible',
+                    filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.32))',
+                    mt: 1.5,
+                    '& .MuiAvatar-root': {
+                      width: 32,
+                      height: 32,
+                      ml: -0.5,
+                      mr: 1,
+                    },
+                    '&:before': {
+                      content: '""',
+                      display: 'block',
+                      position: 'absolute',
+                      top: 0,
+                      right: 14,
+                      width: 10,
+                      height: 10,
+                      bgcolor: 'background.paper',
+                      transform: 'translateY(-50%) rotate(45deg)',
+                      zIndex: 0,
+                    },
+                  },
+                }}
+                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+              >
+                <MenuItem>
+                  <Avatar
+                    src={userAvatar}
+                    alt={user?.name}
+                    sx={{ bgcolor: userAvatar ? 'transparent' : 'primary.main' }}
+                  >
+                    {!userAvatar && user?.name?.charAt(0)?.toUpperCase()}
+                  </Avatar>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      {user?.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {user?.email}
+                    </Typography>
+                  </Box>
+                </MenuItem>
+                <Divider />
+                <MenuItem onClick={handleProfileClick}>
+                  <ListItemIcon>
+                    <PersonIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText>プロフィール</ListItemText>
+                </MenuItem>
+                <MenuItem onClick={handleLogoutClick}>
+                  <ListItemIcon>
+                    <LogoutIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText>ログアウト</ListItemText>
+                </MenuItem>
+              </Menu>
             </Box>
           ) : (
             <Box sx={{ display: 'flex', gap: 2 }}>
@@ -200,7 +333,7 @@ function App() {
         } />
         <Route path="/profile" element={
           <PrivateRoute>
-            <UserProfile />
+            <UserProfile onAvatarUpdate={setUserAvatar} />
           </PrivateRoute>
         } />
 
