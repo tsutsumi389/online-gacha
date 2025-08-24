@@ -158,6 +158,9 @@ export const updateProfileSchema = Joi.object({
   email: Joi.string().email().optional().messages({
     'string.email': '正しいメールアドレスを入力してください'
   }),
+  avatarImageId: Joi.number().integer().optional().allow(null).messages({
+    'number.integer': 'アバター画像IDは数値である必要があります'
+  }),
   currentPassword: Joi.string().optional().messages({
     'any.required': 'パスワード変更時は現在のパスワードが必要です'
   }),

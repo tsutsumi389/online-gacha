@@ -95,6 +95,21 @@ export const authAPI = {
       body: JSON.stringify(profileData),
     });
   },
+
+  // アバターアップロード
+  uploadAvatar: async (formData) => {
+    return apiRequest('/api/auth/avatar', {
+      method: 'POST',
+      body: formData, // FormDataなのでそのまま送信
+    });
+  },
+
+  // アバター削除
+  deleteAvatar: async () => {
+    return apiRequest('/api/auth/avatar', {
+      method: 'DELETE',
+    });
+  },
 };
 
 // ガチャ関連のAPI
