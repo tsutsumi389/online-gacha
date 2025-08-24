@@ -51,7 +51,7 @@ class Gacha {
           g.updated_at,
           u.name as creator_name,
           uav_64.image_url as creator_avatar_url,
-          (SELECT SUM(gi.stock) FROM gacha_items gi WHERE gi.gacha_id = g.id) as item_count,
+          (SELECT SUM(GREATEST(gi.stock - COALESCE((SELECT COUNT(*) FROM gacha_results gr WHERE gr.gacha_item_id = gi.id), 0), 0)) FROM gacha_items gi WHERE gi.gacha_id = g.id) as item_count,
           (SELECT COUNT(*) FROM gacha_results gr WHERE gr.gacha_id = g.id) as play_count,
           main_img.base_object_key as main_image_base_key,
           main_img.original_filename as main_image_filename,
@@ -158,6 +158,7 @@ class Gacha {
           u.name as creator_name,
           uav_64.image_url as creator_avatar_url,
           COUNT(gr.id) as play_count,
+          (SELECT SUM(GREATEST(gi.stock - COALESCE((SELECT COUNT(*) FROM gacha_results gr2 WHERE gr2.gacha_item_id = gi.id), 0), 0)) FROM gacha_items gi WHERE gi.gacha_id = g.id) as item_count,
           main_img.base_object_key as main_image_base_key,
           main_img.processing_status as main_image_status
         FROM gachas g
@@ -269,7 +270,7 @@ class Gacha {
           g.is_public,
           g.created_at,
           g.updated_at,
-          (SELECT SUM(gi.stock) FROM gacha_items gi WHERE gi.gacha_id = g.id) as item_count,
+          (SELECT SUM(GREATEST(gi.stock - COALESCE((SELECT COUNT(*) FROM gacha_results gr WHERE gr.gacha_item_id = gi.id), 0), 0)) FROM gacha_items gi WHERE gi.gacha_id = g.id) as item_count,
           (SELECT COUNT(*) FROM gacha_results gr WHERE gr.gacha_id = g.id) as play_count,
           main_img.base_object_key as main_image_base_key,
           main_img.original_filename as main_image_filename,
@@ -327,14 +328,18 @@ class Gacha {
 
       const itemsQuery = `
         SELECT 
-          id,
-          name,
-          description,
-          image_url,
-          stock
-        FROM gacha_items
-        WHERE gacha_id = $1
-        ORDER BY name ASC
+          gi.id,
+          gi.name,
+          gi.description,
+          gi.image_url,
+          gi.stock as initial_stock,
+          COALESCE(COUNT(gr.id), 0) as drawn_count,
+          GREATEST(gi.stock - COALESCE(COUNT(gr.id), 0), 0) as stock
+        FROM gacha_items gi
+        LEFT JOIN gacha_results gr ON gi.id = gr.gacha_item_id
+        WHERE gi.gacha_id = $1
+        GROUP BY gi.id, gi.name, gi.description, gi.image_url, gi.stock
+        ORDER BY gi.name ASC
       `;
 
       const [gachaResult, itemsResult] = await Promise.all([
@@ -506,7 +511,7 @@ class Gacha {
   // ガチャを実行
   static async draw(gachaId, userId) {
     try {
-      // ガチャとアイテム情報を取得
+      // ガチャとアイテム情報を取得（動的在庫計算済み）
       const gacha = await this.findByIdWithItems(gachaId);
       if (!gacha || !gacha.is_public) {
         throw new Error('Gacha not found or not public');
@@ -516,7 +521,7 @@ class Gacha {
         throw new Error('No items available in this gacha');
       }
 
-      // 在庫のあるアイテムのみをフィルタ
+      // 在庫のあるアイテムのみをフィルタ（動的計算された残り在庫を使用）
       const availableItems = gacha.items.filter(item => 
         item.stock === null || item.stock > 0
       );
@@ -529,7 +534,7 @@ class Gacha {
       const randomIndex = Math.floor(Math.random() * availableItems.length);
       const selectedItem = availableItems[randomIndex];
 
-      // ガチャ結果を記録
+      // ガチャ結果を記録（在庫は gacha_results テーブルの履歴から動的計算されるため、stockカラムは更新しない）
       const resultQuery = `
         INSERT INTO gacha_results (user_id, gacha_id, gacha_item_id)
         VALUES ($1, $2, $3)
@@ -537,14 +542,6 @@ class Gacha {
       `;
 
       const result = await database.query(resultQuery, [userId, gachaId, selectedItem.id]);
-
-      // 在庫を減らす（在庫管理がある場合）
-      if (selectedItem.stock !== null) {
-        await database.query(
-          'UPDATE gacha_items SET stock = stock - 1 WHERE id = $1',
-          [selectedItem.id]
-        );
-      }
 
       return {
         result: result.rows[0],
