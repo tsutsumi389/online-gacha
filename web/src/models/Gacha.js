@@ -47,6 +47,8 @@ class Gacha {
           g.description,
           g.price,
           g.is_public,
+          g.display_from,
+          g.display_to,
           g.created_at,
           g.updated_at,
           u.name as creator_name,
