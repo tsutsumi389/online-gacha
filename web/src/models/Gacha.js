@@ -270,7 +270,7 @@ class Gacha {
         LEFT JOIN gacha_images main_img ON g.id = main_img.gacha_id AND main_img.is_main = true
         ${whereClause}
         ORDER BY g.${sortBy} ${sortOrder.toUpperCase()}
-        LIMIT ${paramIndex} OFFSET ${paramIndex + 1}
+        LIMIT $` + paramIndex + ` OFFSET $` + (paramIndex + 1) + `
       `;
       queryParams.push(limit, offset);
 
