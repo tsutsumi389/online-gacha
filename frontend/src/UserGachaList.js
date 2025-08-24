@@ -315,9 +315,16 @@ export default function UserGachaList() {
             const remainingStock = parseInt(gacha.item_count) || 0;
             const initialStock = parseInt(gacha.initial_stock_total) || 0;
             const stockProgress = initialStock > 0 ? (remainingStock / initialStock) * 100 : 0;
-            const daysLeft = gacha.display_to ? 
-              Math.ceil((new Date(gacha.display_to) - new Date()) / (1000 * 60 * 60 * 24)) : 
-              30; // デフォルト値
+            
+            let daysLeft = null;
+            if (gacha.display_to) {
+              const remainingTime = new Date(gacha.display_to) - new Date();
+              if (remainingTime > 0) {
+                daysLeft = Math.ceil(remainingTime / (1000 * 60 * 60 * 24));
+              } else {
+                daysLeft = 0;
+              }
+            }
 
             return (
               <Grid item xs={12} sm={6} lg={4} key={gacha.id}>
@@ -466,12 +473,14 @@ export default function UserGachaList() {
                               {gacha.price || 0}pt
                             </Typography>
                           </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <ScheduleIcon color="action" sx={{ mr: 0.5, fontSize: 16 }} />
-                            <Typography variant="caption" color={daysLeft <= 3 ? 'error.main' : 'text.secondary'}>
-                              あと{daysLeft}日
-                            </Typography>
-                          </Box>
+                          {daysLeft !== null && (
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <ScheduleIcon color="action" sx={{ mr: 0.5, fontSize: 16 }} />
+                              <Typography variant="caption" color={daysLeft <= 3 ? 'error.main' : 'text.secondary'}>
+                                {daysLeft > 0 ? `あと${daysLeft}日` : '本日終了'}
+                              </Typography>
+                            </Box>
+                          )}
                         </Box>
 
                         {/* レアリティ表示 */}

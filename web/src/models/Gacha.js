@@ -47,6 +47,8 @@ class Gacha {
           g.description,
           g.price,
           g.is_public,
+          g.display_from,
+          g.display_to,
           g.created_at,
           g.updated_at,
           u.name as creator_name,
@@ -63,6 +65,8 @@ class Gacha {
         LEFT JOIN user_avatar_variants uav_64 ON uai.id = uav_64.user_avatar_image_id AND uav_64.size_type = 'avatar_64'
         LEFT JOIN gacha_images main_img ON g.id = main_img.gacha_id AND main_img.is_main = true
         WHERE g.is_public = true
+          AND (g.display_from IS NULL OR g.display_from <= NOW())
+          AND (g.display_to IS NULL OR g.display_to >= NOW())
       `;
 
       const params = [];
@@ -270,6 +274,8 @@ class Gacha {
           g.description,
           g.price,
           g.is_public,
+          g.display_from,
+          g.display_to,
           g.created_at,
           g.updated_at,
           (SELECT SUM(GREATEST(gi.stock - COALESCE((SELECT COUNT(*) FROM gacha_results gr WHERE gr.gacha_item_id = gi.id), 0), 0)) FROM gacha_items gi WHERE gi.gacha_id = g.id) as item_count,

@@ -54,13 +54,21 @@ export default function AdminGachaEdit() {
       const response = await myGachaAPI.getGacha(gachaId);
       const gachaData = response.gacha;
       setGacha(gachaData);
+      // ISO文字列→YYYY-MM-DD変換関数
+      const toDateInput = (val) => {
+        if (!val) return '';
+        const d = new Date(val);
+        if (isNaN(d.getTime())) return '';
+        // YYYY-MM-DD
+        return d.toISOString().slice(0, 10);
+      };
       setForm({
         name: gachaData.name || '',
         description: gachaData.description || '',
         price: gachaData.price || 100,
         isPublic: gachaData.isPublic || true,
-        displayFrom: gachaData.displayFrom || '',
-        displayTo: gachaData.displayTo || ''
+        displayFrom: toDateInput(gachaData.displayFrom),
+        displayTo: toDateInput(gachaData.displayTo)
       });
     } catch (err) {
       setError('ガチャの取得に失敗しました: ' + err.message);
