@@ -167,7 +167,7 @@ export default function UserGachaList() {
 
   const filtered = gachas.filter((gacha) => {
     const matchesSearch = gacha.name?.toLowerCase().includes(search.toLowerCase()) ||
-                         gacha.creator?.toLowerCase().includes(search.toLowerCase());
+                         gacha.creator_name?.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || gacha.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -442,11 +442,11 @@ export default function UserGachaList() {
                         {/* 作成者情報 */}
                         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                           <Avatar src={gacha.creatorAvatar} sx={{ width: 32, height: 32, mr: 1 }}>
-                            {gacha.creator ? gacha.creator.charAt(0) : 'U'}
+                            {gacha.creator_name ? gacha.creator_name.charAt(0) : 'U'}
                           </Avatar>
                           <Box>
                             <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                              {gacha.creator || '不明'}
+                              {gacha.creator_name || '不明'}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
                               クリエイター
