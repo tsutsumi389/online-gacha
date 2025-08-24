@@ -1,8 +1,22 @@
 // 認証関連のルート
 import User from '../models/User.js';
 import { loginSchema, registerSchema, changePasswordSchema, updateProfileSchema } from '../schemas/validation.js';
+import { processUserAvatar, deleteUserAvatar } from '../utils/imageProcessor.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export default async function authRoutes(fastify, options) {
+  // multipartプラグインを登録（アバターアップロード用）
+  await fastify.register(import('@fastify/multipart'), {
+    limits: {
+      fileSize: 5 * 1024 * 1024, // 5MB
+      files: 1
+    }
+  });
+
   // ユーザー登録
   fastify.post('/register', async (request, reply) => {
     try {
@@ -234,7 +248,7 @@ export default async function authRoutes(fastify, options) {
         });
       }
 
-      const { name, email, currentPassword, newPassword } = value;
+      const { name, email, currentPassword, newPassword, avatarImageId } = value;
       
       // パスワード変更時の追加バリデーション
       if (newPassword && !currentPassword) {
@@ -274,6 +288,13 @@ export default async function authRoutes(fastify, options) {
         await user.updateEmail(email);
         updates.email = email;
         changedFields.push('email');
+      }
+
+      // アバター画像IDの更新
+      if (avatarImageId !== undefined && avatarImageId !== user.avatar_image_id) {
+        await user.updateAvatarImageId(avatarImageId);
+        updates.avatarImageId = avatarImageId;
+        changedFields.push('avatar');
       }
 
       // パスワードの更新
@@ -329,6 +350,123 @@ export default async function authRoutes(fastify, options) {
       return reply.code(500).send({ 
         error: 'INTERNAL_SERVER_ERROR',
         message: 'サーバーエラーが発生しました' 
+      });
+    }
+  });
+
+  // ユーザーアバターアップロード
+  fastify.post('/avatar', { 
+    preHandler: fastify.authenticate 
+  }, async (request, reply) => {
+    try {
+      const data = await request.file();
+      
+      if (!data) {
+        return reply.code(400).send({
+          error: 'VALIDATION_ERROR',
+          message: 'アバター画像ファイルが必要です'
+        });
+      }
+
+      // ファイルサイズチェック（5MB）
+      if (data.file.bytesRead > 5 * 1024 * 1024) {
+        return reply.code(400).send({
+          error: 'VALIDATION_ERROR',
+          message: 'ファイルサイズは5MB以下にしてください'
+        });
+      }
+
+      // ファイル形式チェック
+      const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif'];
+      if (!allowedMimeTypes.includes(data.mimetype)) {
+        return reply.code(400).send({
+          error: 'VALIDATION_ERROR',
+          message: 'JPEG、PNG、GIF形式のファイルを選択してください'
+        });
+      }
+
+      const user = await User.findById(request.user.userId);
+      if (!user) {
+        return reply.code(404).send({ error: 'User not found' });
+      }
+
+      // 既存のアバター画像があれば削除
+      if (user.avatar_image_id) {
+        try {
+          await deleteUserAvatar(user.id, user.avatar_image_id);
+        } catch (deleteError) {
+          fastify.log.warn('Failed to delete existing avatar:', deleteError);
+          // 削除エラーは警告のみ、新しいアバターのアップロードは続行
+        }
+      }
+
+      // 新しいアバター画像を処理
+      const avatarResult = await processUserAvatar(user.id, data);
+
+      // ユーザーのavatar_image_idを更新
+      await user.updateAvatarImageId(avatarResult.id);
+
+      return reply.send({
+        message: 'アバターが正常にアップロードされました',
+        avatarImage: {
+          id: avatarResult.id,
+          originalFilename: avatarResult.originalFilename,
+          processingStatus: avatarResult.processingStatus,
+          variants: avatarResult.variants
+        }
+      });
+
+    } catch (error) {
+      fastify.log.error('Avatar upload error:', error);
+      
+      if (error.message && error.message.includes('processing')) {
+        return reply.code(500).send({
+          error: 'PROCESSING_ERROR',
+          message: '画像ファイルの処理に失敗しました'
+        });
+      }
+      
+      return reply.code(500).send({
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'サーバーエラーが発生しました'
+      });
+    }
+  });
+
+  // ユーザーアバター削除
+  fastify.delete('/avatar', { 
+    preHandler: fastify.authenticate 
+  }, async (request, reply) => {
+    try {
+      const user = await User.findById(request.user.userId);
+      
+      if (!user) {
+        return reply.code(404).send({ error: 'User not found' });
+      }
+
+      if (!user.avatar_image_id) {
+        return reply.code(400).send({
+          error: 'NO_AVATAR',
+          message: '削除するアバター画像がありません'
+        });
+      }
+
+      // アバター画像とファイルを削除
+      await deleteUserAvatar(user.id, user.avatar_image_id);
+
+      // ユーザーのavatar_image_idをNULLに更新
+      await user.updateAvatarImageId(null);
+
+      return reply.send({
+        message: 'アバターが削除されました'
+      });
+
+    } catch (error) {
+      fastify.log.error('Avatar deletion error:', error);
+      
+      return reply.code(500).send({
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'アバターの削除に失敗しました'
       });
     }
   });
