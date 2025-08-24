@@ -143,7 +143,7 @@
 - 全ユーザーが一覧閲覧可能（認証不要）
 - 「ガチャを引く」ボタンは認証必須
 - 公開されたガチャのみ表示（is_public = true）
-- 公開期間内のガチャのみ表示（display_from ～ display_to）**【🚧 部分実装】**
+- 公開期間内のガチャのみ表示（display_from ～ display_to）**【✅ 実装完了】**
 - 作成者情報の取得（usersテーブルとJOIN）**【✅ 実装完了】**
 - **作成者アイコン情報の取得（user_avatar_imagesテーブルとuser_avatar_variantsテーブルJOIN）**【✅ 実装完了】**
 

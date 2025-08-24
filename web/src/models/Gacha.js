@@ -63,6 +63,8 @@ class Gacha {
         LEFT JOIN user_avatar_variants uav_64 ON uai.id = uav_64.user_avatar_image_id AND uav_64.size_type = 'avatar_64'
         LEFT JOIN gacha_images main_img ON g.id = main_img.gacha_id AND main_img.is_main = true
         WHERE g.is_public = true
+          AND (g.display_from IS NULL OR g.display_from <= NOW())
+          AND (g.display_to IS NULL OR g.display_to >= NOW())
       `;
 
       const params = [];
