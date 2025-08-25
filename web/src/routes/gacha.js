@@ -2,6 +2,8 @@
 import Gacha from '../models/Gacha.js';
 import { gachaDrawSchema, gachaListQuerySchema } from '../schemas/validation.js';
 import database from '../config/database.js';
+import sseManager from '../utils/sseManager.js';
+import { v4 as uuidv4 } from 'uuid';
 
 export default async function gachaRoutes(fastify, options) {
   // ガチャ一覧取得（検索・フィルタリング・ソート・ページネーション対応）
@@ -123,6 +125,73 @@ export default async function gachaRoutes(fastify, options) {
     }
   });
 
+  // SSE: ガチャ在庫のリアルタイム配信
+  fastify.get('/stock/stream', async (request, reply) => {
+    try {
+      const connectionId = uuidv4();
+      
+      // SSEクライアントとして登録
+      sseManager.addClient(connectionId, reply);
+      
+      // 在庫更新チャンネルに購読
+      sseManager.subscribeToChannel(connectionId, 'stock-updates');
+      
+      // 初期在庫データを送信
+      const stockData = await Gacha.getAllStockInfo();
+      sseManager.sendToClient(connectionId, 'initial-stock', {
+        gachas: stockData.map(item => ({
+          gachaId: item.gacha_id,
+          currentStock: parseInt(item.current_stock || 0),
+          initialStock: parseInt(item.initial_stock || 0)
+        }))
+      });
+
+      // 接続を維持（fastifyが自動的に処理）
+      return reply;
+      
+    } catch (error) {
+      fastify.log.error('SSE connection error:', error);
+      return reply.code(500).send({ error: 'SSE connection failed' });
+    }
+  });
+
+  // SSE: 特定ガチャの在庫ストリーム
+  fastify.get('/:id/stock/stream', async (request, reply) => {
+    try {
+      const gachaId = parseInt(request.params.id);
+      
+      if (isNaN(gachaId)) {
+        return reply.code(400).send({ error: 'Invalid gacha ID' });
+      }
+
+      const connectionId = uuidv4();
+      
+      // SSEクライアントとして登録
+      sseManager.addClient(connectionId, reply);
+      
+      // 特定ガチャの在庫更新チャンネルに購読
+      sseManager.subscribeToChannel(connectionId, `gacha-${gachaId}-stock`);
+      
+      // 初期在庫データを送信
+      const stockInfo = await Gacha.getStockInfo(gachaId);
+      if (stockInfo) {
+        sseManager.sendToClient(connectionId, 'stock-update', {
+          gachaId: stockInfo.gacha_id,
+          currentStock: parseInt(stockInfo.current_stock || 0),
+          initialStock: parseInt(stockInfo.initial_stock || 0),
+          gachaName: stockInfo.gacha_name
+        });
+      }
+
+      // 接続を維持
+      return reply;
+      
+    } catch (error) {
+      fastify.log.error('SSE gacha stock connection error:', error);
+      return reply.code(500).send({ error: 'SSE connection failed' });
+    }
+  });
+
   // ガチャ実行
   fastify.post('/:id/draw', { 
     preHandler: fastify.authenticate 
@@ -135,6 +204,25 @@ export default async function gachaRoutes(fastify, options) {
       }
 
       const result = await Gacha.draw(gachaId, request.user.id);
+
+      // ガチャ実行後、在庫数をSSEでブロードキャスト
+      const stockInfo = await Gacha.getStockInfo(gachaId);
+      if (stockInfo) {
+        // 全体の在庫更新チャンネルにブロードキャスト
+        sseManager.broadcast('stock-updates', 'stock-update', {
+          gachaId: stockInfo.gacha_id,
+          currentStock: parseInt(stockInfo.current_stock || 0),
+          initialStock: parseInt(stockInfo.initial_stock || 0)
+        });
+
+        // 特定ガチャの在庫更新チャンネルにブロードキャスト
+        sseManager.broadcast(`gacha-${gachaId}-stock`, 'stock-update', {
+          gachaId: stockInfo.gacha_id,
+          currentStock: parseInt(stockInfo.current_stock || 0),
+          initialStock: parseInt(stockInfo.initial_stock || 0),
+          gachaName: stockInfo.gacha_name
+        });
+      }
 
       return reply.send({
         message: 'Gacha draw successful',

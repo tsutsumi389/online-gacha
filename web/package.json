@@ -8,15 +8,16 @@
     "seed": "node -e \"const fs = require('fs'); const { Client } = require('pg'); const config = JSON.parse(fs.readFileSync('database.json')); const client = new Client(config); const seedSQL = fs.readFileSync('seeds/001_initial_seed.sql', 'utf8'); client.connect().then(() => client.query(seedSQL)).then(() => { console.log('Seed data inserted successfully'); client.end(); }).catch(err => { console.error(err); client.end(); process.exit(1); });\""
   },
   "dependencies": {
-    "fastify": "^4.27.2",
-    "pg": "^8.12.0",
-    "@fastify/jwt": "^7.2.4",
     "@fastify/cookie": "^9.2.0",
     "@fastify/cors": "^8.4.2",
+    "@fastify/jwt": "^7.2.4",
     "@fastify/multipart": "^8.0.0",
     "bcrypt": "^5.1.1",
+    "fastify": "^4.27.2",
+    "fastify-sse-v2": "^4.2.1",
     "joi": "^17.11.0",
     "minio": "^8.0.1",
+    "pg": "^8.12.0",
     "sharp": "^0.33.5",
     "uuid": "^10.0.0"
   },
