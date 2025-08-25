@@ -28,7 +28,7 @@
 - **商品名**: gacha_items.name（VARCHAR(128), 必須）
 - **説明**: gacha_items.description（TEXT, 任意）
 - **初期在庫数**: gacha_items.stock（INTEGER, 在庫管理用）
-- **残り在庫数**: `gacha_items.stock` から、`gacha_results` テーブル内の該当アイテムの排出数を引いて動的に計算
+**残り在庫数**: `gacha_items.stock` から、`gacha_results` テーブル内の該当アイテムの排出数を引いて動的に計算（この値はSSEでリアルタイム表示される）
 - **公開状態**: gacha_items.is_public（BOOLEAN）
 
 ### 4.3 ガチャ実行ボタン
@@ -40,10 +40,11 @@
 - ~~**レアリティ**~~: レアリティカラムは存在しない
 - ~~**カテゴリ**~~: カテゴリカラムは存在しない
 
-## 5. API設計 ✅ 実装完了
+## 5. API設計（在庫数SSE対応）
 ### 5.1 実装済みエンドポイント
 - ✅ **GET /api/gachas/:id** ... ガチャ詳細取得（アイテム情報含む）
 - ✅ **POST /api/gachas/:id/draw** ... ガチャ実行（認証必須）
+- 🔄 **GET /api/gachas/:id/stock/stream** ... 指定ガチャの在庫数をSSEで配信（クライアントは詳細画面表示時に購読）
 
 ### 5.2 レスポンス形式
 #### ガチャ詳細取得（GET /api/gachas/:id）
@@ -195,7 +196,7 @@
 - ✅ **在庫管理**: 残り在庫数0のアイテムは抽選対象外。残り在庫数は `初期在庫数 - 排出済数` で動的に計算。
 
 ## 8. 技術仕様 ✅ 完全実装完了
-### 8.1 実装済み技術スタック
+### 8.1 実装済み技術スタック（一部SSE対応）
 - ✅ **バックエンド**: Node.js + Fastify
 - ✅ **データベース**: PostgreSQL（完全スキーマ対応）
 - ✅ **認証**: JWT認証（ガチャ実行時）
@@ -205,7 +206,7 @@
 - ✅ **レスポンシブ対応**: スマホ・PC対応
 - ✅ **アニメーション**: Framer Motion（ガチャ演出）
 - ✅ **状態管理**: React Hooks（useState, useEffect）
-- ✅ **API通信**: axios + エラーハンドリング
+- ✅ **API通信**: axios + エラーハンドリング（一部SSE: EventSourceで在庫数のみ購読）
 - ✅ **レスポンシブ画像**: Picture要素 + srcset（AVIF/WebP/JPEG自動選択）
 
 ### 8.2 実装済み機能詳細

@@ -1062,6 +1062,53 @@ class Gacha {
       throw error;
     }
   }
+
+  // ガチャの現在の在庫数を取得
+  static async getStockInfo(gachaId) {
+    try {
+      const query = `
+        SELECT 
+          g.id as gacha_id,
+          g.name as gacha_name,
+          (SELECT SUM(GREATEST(gi.stock - COALESCE((SELECT COUNT(*) FROM gacha_results gr WHERE gr.gacha_item_id = gi.id), 0), 0)) 
+           FROM gacha_items gi WHERE gi.gacha_id = g.id) as current_stock,
+          (SELECT SUM(gi.stock) FROM gacha_items gi WHERE gi.gacha_id = g.id) as initial_stock
+        FROM gachas g
+        WHERE g.id = $1 AND g.is_public = true
+      `;
+      
+      const result = await database.query(query, [gachaId]);
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('Error in getStockInfo:', error);
+      throw error;
+    }
+  }
+
+  // 全ガチャの在庫情報を取得（SSE用）
+  static async getAllStockInfo() {
+    try {
+      const query = `
+        SELECT 
+          g.id as gacha_id,
+          g.name as gacha_name,
+          (SELECT SUM(GREATEST(gi.stock - COALESCE((SELECT COUNT(*) FROM gacha_results gr WHERE gr.gacha_item_id = gi.id), 0), 0)) 
+           FROM gacha_items gi WHERE gi.gacha_id = g.id) as current_stock,
+          (SELECT SUM(gi.stock) FROM gacha_items gi WHERE gi.gacha_id = g.id) as initial_stock
+        FROM gachas g
+        WHERE g.is_public = true 
+          AND g.display_from <= NOW() 
+          AND g.display_to >= NOW()
+        ORDER BY g.id
+      `;
+      
+      const result = await database.query(query);
+      return result.rows;
+    } catch (error) {
+      console.error('Error in getAllStockInfo:', error);
+      throw error;
+    }
+  }
 }
 
 export default Gacha;

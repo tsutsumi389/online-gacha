@@ -10,6 +10,7 @@ import {
   getProcessingStatistics,
   retryFailedProcessing
 } from '../utils/imageProcessor.js';
+import sseManager from '../utils/sseManager.js';
 
 export default async function userGachaRoutes(fastify, options) {
   // ファイルアップロード設定
@@ -352,6 +353,29 @@ export default async function userGachaRoutes(fastify, options) {
 
       const newItem = await Gacha.createItemForUser(gachaId, itemData, request.user.userId);
 
+      // アイテム作成後、在庫数をSSEでブロードキャスト
+      try {
+        const stockInfo = await Gacha.getStockInfo(gachaId);
+        if (stockInfo) {
+          // 全体の在庫更新チャンネルにブロードキャスト
+          sseManager.broadcast('stock-updates', 'stock-update', {
+            gachaId: stockInfo.gacha_id,
+            currentStock: parseInt(stockInfo.current_stock || 0),
+            initialStock: parseInt(stockInfo.initial_stock || 0)
+          });
+
+          // 特定ガチャの在庫更新チャンネルにブロードキャスト
+          sseManager.broadcast(`gacha-${gachaId}-stock`, 'stock-update', {
+            gachaId: stockInfo.gacha_id,
+            currentStock: parseInt(stockInfo.current_stock || 0),
+            initialStock: parseInt(stockInfo.initial_stock || 0),
+            gachaName: stockInfo.gacha_name
+          });
+        }
+      } catch (sseError) {
+        fastify.log.warn('Failed to broadcast stock update after item creation:', sseError);
+      }
+
       return reply.code(201).send({
         message: 'Gacha item created successfully',
         item: newItem
@@ -406,6 +430,31 @@ export default async function userGachaRoutes(fastify, options) {
       // アイテム更新
       const updatedItem = await Gacha.updateItemForUser(gachaId, itemId, value, request.user.userId);
 
+      // アイテム更新後、在庫数をSSEでブロードキャスト（stockが更新された場合）
+      if (value.stock !== undefined) {
+        try {
+          const stockInfo = await Gacha.getStockInfo(gachaId);
+          if (stockInfo) {
+            // 全体の在庫更新チャンネルにブロードキャスト
+            sseManager.broadcast('stock-updates', 'stock-update', {
+              gachaId: stockInfo.gacha_id,
+              currentStock: parseInt(stockInfo.current_stock || 0),
+              initialStock: parseInt(stockInfo.initial_stock || 0)
+            });
+
+            // 特定ガチャの在庫更新チャンネルにブロードキャスト
+            sseManager.broadcast(`gacha-${gachaId}-stock`, 'stock-update', {
+              gachaId: stockInfo.gacha_id,
+              currentStock: parseInt(stockInfo.current_stock || 0),
+              initialStock: parseInt(stockInfo.initial_stock || 0),
+              gachaName: stockInfo.gacha_name
+            });
+          }
+        } catch (sseError) {
+          fastify.log.warn('Failed to broadcast stock update after item update:', sseError);
+        }
+      }
+
       return reply.send({
         message: 'Gacha item updated successfully',
         item: updatedItem
@@ -447,6 +496,29 @@ export default async function userGachaRoutes(fastify, options) {
 
       // アイテム削除
       await Gacha.deleteItemForUser(gachaId, itemId, request.user.userId);
+
+      // アイテム削除後、在庫数をSSEでブロードキャスト
+      try {
+        const stockInfo = await Gacha.getStockInfo(gachaId);
+        if (stockInfo) {
+          // 全体の在庫更新チャンネルにブロードキャスト
+          sseManager.broadcast('stock-updates', 'stock-update', {
+            gachaId: stockInfo.gacha_id,
+            currentStock: parseInt(stockInfo.current_stock || 0),
+            initialStock: parseInt(stockInfo.initial_stock || 0)
+          });
+
+          // 特定ガチャの在庫更新チャンネルにブロードキャスト
+          sseManager.broadcast(`gacha-${gachaId}-stock`, 'stock-update', {
+            gachaId: stockInfo.gacha_id,
+            currentStock: parseInt(stockInfo.current_stock || 0),
+            initialStock: parseInt(stockInfo.initial_stock || 0),
+            gachaName: stockInfo.gacha_name
+          });
+        }
+      } catch (sseError) {
+        fastify.log.warn('Failed to broadcast stock update after item deletion:', sseError);
+      }
 
       // MinIO画像も削除（存在する場合）
       if (imageUrl) {

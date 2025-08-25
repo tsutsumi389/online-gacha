@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -42,6 +42,7 @@ import 'swiper/css/pagination';
 import 'swiper/css/effect-coverflow';
 import { motion, AnimatePresence } from 'framer-motion';
 import { gachaAPI, handleApiError } from './utils/api';
+import sseClient from './utils/sseClient';
 
 // 実際のシードデータに基づくモックデータ
 const mockGachas = [
@@ -144,6 +145,9 @@ export default function UserGachaList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
+  const [stockData, setStockData] = useState(new Map()); // ガチャID -> 在庫情報のマップ
+  const [updatedStocks, setUpdatedStocks] = useState(new Set()); // 最近更新された在庫のガチャIDセット
+  const sseConnectionRef = useRef(null);
 
   const filters = [
     { key: 'all', label: 'すべて' },
@@ -165,6 +169,77 @@ export default function UserGachaList() {
     }
   };
 
+  // SSE接続を開始
+  const startSSEConnection = () => {
+    const connectionId = 'gacha-list-stock';
+    const endpoint = 'http://localhost:8080/api/gachas/stock/stream';
+    
+    try {
+      sseClient.connect(connectionId, endpoint);
+      sseConnectionRef.current = connectionId;
+
+      // 初期在庫データの受信
+      sseClient.on(connectionId, 'initial-stock', (data) => {
+        console.log('Initial stock data received:', data);
+        const newStockData = new Map();
+        data.gachas.forEach(gacha => {
+          newStockData.set(gacha.gachaId, {
+            currentStock: gacha.currentStock,
+            initialStock: gacha.initialStock
+          });
+        });
+        setStockData(newStockData);
+      });
+
+      // 在庫更新の受信
+      sseClient.on(connectionId, 'stock-update', (data) => {
+        console.log('Stock update received:', data);
+        setStockData(prevStockData => {
+          const newStockData = new Map(prevStockData);
+          newStockData.set(data.gachaId, {
+            currentStock: data.currentStock,
+            initialStock: data.initialStock
+          });
+          return newStockData;
+        });
+
+        // 在庫が更新されたガチャをハイライト用にマーク
+        setUpdatedStocks(prev => new Set(prev).add(data.gachaId));
+        
+        // 3秒後にハイライトを解除
+        setTimeout(() => {
+          setUpdatedStocks(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(data.gachaId);
+            return newSet;
+          });
+        }, 3000);
+      });
+
+      // エラーハンドリング
+      sseClient.on(connectionId, 'error', (error) => {
+        console.error('SSE connection error:', error);
+        // 自動再接続は3秒後に試行
+        setTimeout(() => {
+          if (sseConnectionRef.current === connectionId) {
+            startSSEConnection();
+          }
+        }, 3000);
+      });
+
+    } catch (error) {
+      console.error('Failed to start SSE connection:', error);
+    }
+  };
+
+  // SSE接続を停止
+  const stopSSEConnection = () => {
+    if (sseConnectionRef.current) {
+      sseClient.disconnect(sseConnectionRef.current);
+      sseConnectionRef.current = null;
+    }
+  };
+
   useEffect(() => {
     const params = {
       filter: filter,
@@ -175,6 +250,17 @@ export default function UserGachaList() {
     }, 500); // debounce search
     return () => clearTimeout(handler);
   }, [filter, search]);
+
+  // SSE接続の管理
+  useEffect(() => {
+    // コンポーネントマウント時にSSE接続開始
+    startSSEConnection();
+
+    // クリーンアップ: コンポーネントアンマウント時にSSE接続停止
+    return () => {
+      stopSSEConnection();
+    };
+  }, []);
 
   const sorted = [...gachas].sort((a, b) => {
     switch (sortBy) {
@@ -316,9 +402,13 @@ export default function UserGachaList() {
       <AnimatePresence>
         <Grid container spacing={3}>
           {sorted.map((gacha, index) => {
-            const remainingStock = parseInt(gacha.item_count) || 0;
-            const initialStock = parseInt(gacha.initial_stock_total) || 0;
+            // SSEから受信した在庫データを使用、フォールバックとしてAPIデータを使用
+            const stockInfo = stockData.get(gacha.id);
+            const remainingStock = stockInfo ? stockInfo.currentStock : (parseInt(gacha.item_count) || 0);
+            const initialStock = stockInfo ? stockInfo.initialStock : (parseInt(gacha.initial_stock_total) || 0);
             const stockProgress = initialStock > 0 ? (remainingStock / initialStock) * 100 : 0;
+            const isStockUpdated = updatedStocks.has(gacha.id);
+            const isSoldOut = remainingStock === 0;
             
             let daysLeft = null;
             if (gacha.display_to) {
@@ -347,6 +437,15 @@ export default function UserGachaList() {
                       boxShadow: 4,
                       overflow: 'visible',
                       position: 'relative',
+                      transition: 'all 0.3s ease',
+                      ...(isStockUpdated && {
+                        boxShadow: '0 0 20px rgba(76, 175, 80, 0.6)',
+                        border: '2px solid #4caf50'
+                      }),
+                      ...(isSoldOut && {
+                        opacity: 0.7,
+                        backgroundColor: '#f5f5f5'
+                      }),
                       '&:hover': {
                         boxShadow: 8,
                         transform: 'translateY(-4px)',
@@ -385,6 +484,37 @@ export default function UserGachaList() {
                     <CardActionArea onClick={() => navigate(`/gacha/${gacha.id}`)}>
                       {/* 画像スライダー */}
                       <Box sx={{ position: 'relative', height: 250 }}>
+                        {/* SOLD OUT オーバーレイ */}
+                        {isSoldOut && (
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              bgcolor: 'rgba(0, 0, 0, 0.7)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              zIndex: 2
+                            }}
+                          >
+                            <Typography
+                              variant="h5"
+                              sx={{
+                                color: 'white',
+                                fontWeight: 'bold',
+                                transform: 'rotate(-15deg)',
+                                fontSize: '2rem',
+                                textShadow: '2px 2px 4px rgba(0,0,0,0.8)'
+                              }}
+                            >
+                              SOLD OUT
+                            </Typography>
+                          </Box>
+                        )}
+
                         {gacha.main_image_url ? (
                           <CardMedia
                             component="img"
@@ -551,16 +681,23 @@ export default function UserGachaList() {
                         variant="contained"
                         size="small"
                         startIcon={<PlayIcon />}
+                        disabled={isSoldOut}
                         sx={{
                           ml: 'auto',
                           borderRadius: 2,
-                          background: 'linear-gradient(45deg, #FE6B8B 30%, #FF8E53 90%)',
-                          '&:hover': {
+                          background: isSoldOut 
+                            ? 'linear-gradient(45deg, #9e9e9e 30%, #757575 90%)'
+                            : 'linear-gradient(45deg, #FE6B8B 30%, #FF8E53 90%)',
+                          '&:hover': !isSoldOut ? {
                             background: 'linear-gradient(45deg, #FE6B8B 60%, #FF8E53 100%)',
+                          } : {},
+                          '&:disabled': {
+                            color: 'white',
+                            background: 'linear-gradient(45deg, #9e9e9e 30%, #757575 90%)'
                           }
                         }}
                       >
-                        ガチャを引く
+                        {isSoldOut ? 'SOLD OUT' : 'ガチャを引く'}
                       </Button>
                     </CardActions>
                   </Card>
