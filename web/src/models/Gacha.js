@@ -1123,7 +1123,7 @@ class Gacha {
           g.name as gacha_name,
           gi.name as item_name,
           gi.description as item_description,
-          -- アイテム画像のURLを取得（item_image_variants経由）
+          -- アイテム画像のURLを取得（item_image_variants経由、または直接image_url）
           COALESCE(
             (SELECT iiv.image_url 
              FROM item_image_variants iiv 
@@ -1138,6 +1138,7 @@ class Gacha {
              WHERE ii.id = gi.item_image_id 
                AND iiv.size_type = 'thumbnail' 
              LIMIT 1),
+            gi.image_url,
             '/api/images/default-item.png'
           ) as item_image_url,
           g.id as gacha_id,
