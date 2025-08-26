@@ -218,6 +218,8 @@ LoginForm.js          - ログインフォーム（API統合済み）
 RegisterForm.js       - 新規登録フォーム（API統合済み）
 UserGachaList.js      - 公開ガチャ一覧 (URL: /gacha)（マルチ画像スライド表示対応）
 UserGachaDetail.js    - ガチャ詳細・実行画面 (URL: /gacha/:id)
+UserProfile.js        - ユーザープロフィール管理 (URL: /profile)
+GachaHistory.js       - ガチャ履歴表示 (URL: /gacha-history) ✅ 新規追加
 MyGachaList.js        - マイガチャ一覧 (URL: /my-gacha)（完全実装済み）
 AdminGachaEdit.js     - ガチャ編集・新規作成 (URL: /my-gacha/new, /my-gacha/edit/:id)
                       - ガチャ画像管理機能（アップロード、削除、順序変更、メイン画像設定）
@@ -231,6 +233,8 @@ GachaPerformance.js   - ガチャ実行演出
 /my-gacha           - マイガチャ管理画面
 /my-gacha/new       - ガチャ新規作成画面
 /my-gacha/edit/:id  - ガチャ編集画面（URL パラメータからガチャID取得）
+/profile            - プロフィール画面
+/gacha-history      - ガチャ履歴画面 ✅ 新規追加
 /login              - ログイン画面
 /register           - 新規登録画面
 ```
@@ -459,6 +463,30 @@ curl -b cookies.txt -c cookies.txt \
 3. **HTTPS**: 本番環境では HTTPS 必須
 
 ## 変更履歴
+
+### 2025年8月26日 - ガチャ履歴機能実装
+- **機能追加**:
+  - ガチャ履歴画面の新規実装（URL: `/gacha-history`）
+  - ユーザーのガチャ実行履歴の時系列表示
+  - 実行日時、ガチャ名、獲得アイテム名、アイテムサムネイル表示
+  - ページネーション対応（20件/ページ）
+
+- **バックエンドAPI**:
+  - 新エンドポイント: `GET /api/auth/gacha-history`
+  - `Gacha.getUserGachaHistory()` メソッド追加
+  - `gacha_results`, `gachas`, `gacha_items` テーブルの適切なJOIN
+  - アイテム画像バリアント（サムネイル・WebP）対応
+
+- **フロントエンド実装**:
+  - `GachaHistory.js` コンポーネント新規作成
+  - Material-UI + Framer Motion による洗練されたUI
+  - レスポンシブデザイン、ローディング・エラー・空データ状態対応
+  - ユーザーアバタードロップダウンメニューに「ガチャ履歴」追加
+
+- **ナビゲーション改善**:
+  - ヘッダーユーザーメニューに履歴アイコン付きメニュー項目追加
+  - 認証必須のPrivateRoute実装
+  - ガチャ一覧への誘導機能
 
 ## 変更履歴
 
