@@ -224,7 +224,7 @@ const UserProfile = ({ onAvatarUpdate }) => {
       
       // ヘッダーのアバターを更新
       if (onAvatarUpdate) {
-        onAvatarUpdate(null);
+        onAvatarUpdate(response.user.avatar_url);
       }
       
       setSnackbar({
@@ -494,9 +494,9 @@ const UserProfile = ({ onAvatarUpdate }) => {
                                 bgcolor: alpha(theme.palette.secondary.main, 0.1)
                               }}
                             >
-                              {user?.avatarImageUrl ? (
+                              {user?.avatar_url ? (
                                 <img
-                                  src={user.avatarImageUrl}
+                                  src={user.avatar_url}
                                   alt="Current Avatar"
                                   style={{
                                     width: '100%',
@@ -574,7 +574,7 @@ const UserProfile = ({ onAvatarUpdate }) => {
                                       画像選択
                                     </Button>
                                   </label>
-                                  {user?.avatarImageUrl && (
+                                  {user?.avatar_url && (
                                     <Button
                                       variant="outlined"
                                       color="error"

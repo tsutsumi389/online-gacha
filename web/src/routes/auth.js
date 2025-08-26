@@ -101,6 +101,9 @@ export default async function authRoutes(fastify, options) {
         return reply.code(401).send({ error: 'Invalid email or password' });
       }
 
+      // アバター情報を含む完全なユーザー情報を取得
+      const completeUser = await User.findById(user.id);
+
       // JWTトークンの生成（roleを除去）
       const token = fastify.jwt.sign({ 
         userId: user.id, 
@@ -118,7 +121,7 @@ export default async function authRoutes(fastify, options) {
 
       return reply.send({
         message: 'Login successful',
-        user: user.toJSON()
+        user: completeUser.toJSON()
       });
 
     } catch (error) {
