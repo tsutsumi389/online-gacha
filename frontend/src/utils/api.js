@@ -110,6 +110,18 @@ export const authAPI = {
       method: 'DELETE',
     });
   },
+
+  // ガチャ履歴取得
+  getGachaHistory: async (params = {}) => {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page);
+    if (params.limit) queryParams.append('limit', params.limit);
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/api/auth/gacha-history${queryString ? `?${queryString}` : ''}`;
+    
+    return apiRequest(endpoint);
+  },
 };
 
 // ガチャ関連のAPI
