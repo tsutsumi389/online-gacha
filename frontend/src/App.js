@@ -18,7 +18,8 @@ import {
 } from '@mui/material';
 import {
   Person as PersonIcon,
-  Logout as LogoutIcon
+  Logout as LogoutIcon,
+  History as HistoryIcon
 } from '@mui/icons-material';
 import LoginForm from './LoginForm';
 import RegisterForm from './RegisterForm';
@@ -27,6 +28,7 @@ import AdminGachaEdit from './AdminGachaEdit';
 import UserGachaList from './UserGachaList';
 import UserGachaDetail from './UserGachaDetail';
 import UserProfile from './UserProfile';
+import GachaHistory from './GachaHistory';
 import { authAPI } from './utils/api';
 
 function App() {
@@ -100,6 +102,11 @@ function App() {
   const handleProfileClick = () => {
     handleMenuClose();
     navigate('/profile');
+  };
+
+  const handleGachaHistoryClick = () => {
+    handleMenuClose();
+    navigate('/gacha-history');
   };
 
   const handleLogoutClick = () => {
@@ -251,6 +258,12 @@ function App() {
                   </ListItemIcon>
                   <ListItemText>プロフィール</ListItemText>
                 </MenuItem>
+                <MenuItem onClick={handleGachaHistoryClick}>
+                  <ListItemIcon>
+                    <HistoryIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText>ガチャ履歴</ListItemText>
+                </MenuItem>
                 <MenuItem onClick={handleLogoutClick}>
                   <ListItemIcon>
                     <LogoutIcon fontSize="small" />
@@ -334,6 +347,11 @@ function App() {
         <Route path="/profile" element={
           <PrivateRoute>
             <UserProfile onAvatarUpdate={setUserAvatar} />
+          </PrivateRoute>
+        } />
+        <Route path="/gacha-history" element={
+          <PrivateRoute>
+            <GachaHistory />
           </PrivateRoute>
         } />
 

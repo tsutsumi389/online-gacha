@@ -1,5 +1,6 @@
 // 認証関連のルート
 import User from '../models/User.js';
+import Gacha from '../models/Gacha.js';
 import { loginSchema, registerSchema, changePasswordSchema, updateProfileSchema } from '../schemas/validation.js';
 import { processUserAvatar, deleteUserAvatar } from '../utils/imageProcessor.js';
 import path from 'path';
@@ -467,6 +468,37 @@ export default async function authRoutes(fastify, options) {
       return reply.code(500).send({
         error: 'INTERNAL_SERVER_ERROR',
         message: 'アバターの削除に失敗しました'
+      });
+    }
+  });
+
+  // ガチャ履歴取得（認証が必要）
+  fastify.get('/gacha-history', { 
+    preHandler: fastify.authenticate 
+  }, async (request, reply) => {
+    try {
+      const { page = 1, limit = 20 } = request.query;
+      
+      // パラメータのバリデーション
+      const pageNum = Math.max(1, parseInt(page));
+      const limitNum = Math.max(1, Math.min(100, parseInt(limit))); // 最大100件まで
+
+      const result = await Gacha.getUserGachaHistory(request.user.userId, {
+        page: pageNum,
+        limit: limitNum
+      });
+
+      return reply.send({
+        success: true,
+        ...result
+      });
+
+    } catch (error) {
+      fastify.log.error('Gacha history fetch error:', error);
+      
+      return reply.code(500).send({
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'ガチャ履歴の取得に失敗しました'
       });
     }
   });

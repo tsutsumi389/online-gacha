@@ -1109,6 +1109,77 @@ class Gacha {
       throw error;
     }
   }
+
+  // ユーザーのガチャ履歴を取得
+  static async getUserGachaHistory(userId, options = {}) {
+    try {
+      const { page = 1, limit = 20 } = options;
+      const offset = (page - 1) * limit;
+
+      const query = `
+        SELECT 
+          gr.id,
+          gr.executed_at,
+          g.name as gacha_name,
+          gi.name as item_name,
+          gi.description as item_description,
+          -- アイテム画像のURLを取得（item_image_variants経由）
+          COALESCE(
+            (SELECT iiv.image_url 
+             FROM item_image_variants iiv 
+             JOIN item_images ii ON iiv.item_image_id = ii.id 
+             WHERE ii.id = gi.item_image_id 
+               AND iiv.size_type = 'thumbnail' 
+               AND iiv.format_type = 'webp' 
+             LIMIT 1),
+            (SELECT iiv.image_url 
+             FROM item_image_variants iiv 
+             JOIN item_images ii ON iiv.item_image_id = ii.id 
+             WHERE ii.id = gi.item_image_id 
+               AND iiv.size_type = 'thumbnail' 
+             LIMIT 1),
+            '/api/images/default-item.png'
+          ) as item_image_url,
+          g.id as gacha_id,
+          gi.id as item_id
+        FROM gacha_results gr
+        JOIN gachas g ON gr.gacha_id = g.id
+        JOIN gacha_items gi ON gr.gacha_item_id = gi.id
+        WHERE gr.user_id = $1
+        ORDER BY gr.executed_at DESC
+        LIMIT $2 OFFSET $3
+      `;
+
+      const countQuery = `
+        SELECT COUNT(*) as total_count
+        FROM gacha_results gr
+        WHERE gr.user_id = $1
+      `;
+
+      const [historyResult, countResult] = await Promise.all([
+        database.query(query, [userId, limit, offset]),
+        database.query(countQuery, [userId])
+      ]);
+
+      const totalCount = parseInt(countResult.rows[0].total_count);
+      const totalPages = Math.ceil(totalCount / limit);
+
+      return {
+        history: historyResult.rows,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: totalCount,
+          itemsPerPage: limit,
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        }
+      };
+    } catch (error) {
+      console.error('Error in getUserGachaHistory:', error);
+      throw error;
+    }
+  }
 }
 
 export default Gacha;
