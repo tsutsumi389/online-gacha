@@ -224,7 +224,7 @@ const UserProfile = ({ onAvatarUpdate }) => {
       
       // ヘッダーのアバターを更新
       if (onAvatarUpdate) {
-        onAvatarUpdate(null);
+        onAvatarUpdate(response.user.avatar_url);
       }
       
       setSnackbar({
