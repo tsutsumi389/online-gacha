@@ -371,7 +371,7 @@ export default function UserGachaDetail({ gachaId, onBack }) {
                             left: 0,
                             right: 0,
                             bottom: 0,
-                            background: 'rgba(0,0,0,0.5)',
+                            bgcolor: 'rgba(0, 0, 0, 0.7)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -379,11 +379,13 @@ export default function UserGachaDetail({ gachaId, onBack }) {
                           }}
                         >
                           <Typography
-                            variant="h6"
+                            variant="h5"
                             sx={{
                               color: 'white',
-                              fontWeight: 600,
-                              transform: 'rotate(-15deg)'
+                              fontWeight: 'bold',
+                              transform: 'rotate(-15deg)',
+                              fontSize: '2rem',
+                              textShadow: '2px 2px 4px rgba(0,0,0,0.8)'
                             }}
                           >
                             SOLD OUT
