@@ -27,6 +27,7 @@ import AdminGachaManage from './AdminGachaManage';
 import AdminGachaEdit from './AdminGachaEdit';
 import UserGachaList from './UserGachaList';
 import UserGachaDetail from './UserGachaDetail';
+
 import UserProfile from './UserProfile';
 import GachaHistory from './GachaHistory';
 import { authAPI } from './utils/api';
@@ -327,6 +328,7 @@ function App() {
         {/* 公開ページ（誰でもアクセス可能） */}
         <Route path="/gacha" element={<UserGachaList />} />
         <Route path="/gacha/:id" element={<GachaDetailWrapper />} />
+
 
         {/* 保護されたページ（認証が必要） */}
         <Route path="/my-gacha" element={

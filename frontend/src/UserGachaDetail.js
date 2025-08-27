@@ -351,19 +351,19 @@ export default function UserGachaDetail({ gachaId, onBack }) {
                         height: '100%',
                         background: `linear-gradient(135deg, ${alpha(theme.palette.background.paper, 0.9)} 0%, ${alpha(theme.palette.background.paper, 0.95)} 100%)`,
                         backdropFilter: 'blur(20px)',
-                        border: `2px solid ${item.stock === 0 ? theme.palette.divider : theme.palette.primary.main}`,
+                        border: `2px solid ${Number(item.stock) === 0 ? theme.palette.divider : theme.palette.primary.main}`,
                         borderRadius: 3,
                         overflow: 'hidden',
                         position: 'relative',
-                        opacity: item.stock === 0 ? 0.6 : 1,
+                        opacity: Number(item.stock) === 0 ? 0.6 : 1,
                         transition: 'all 0.3s ease',
                         '&:hover': {
-                          transform: item.stock > 0 ? 'translateY(-8px)' : 'none',
-                          boxShadow: item.stock > 0 ? `0 12px 24px ${alpha(theme.palette.primary.main, 0.3)}` : 'none'
+                          transform: Number(item.stock) > 0 ? 'translateY(-8px)' : 'none',
+                          boxShadow: Number(item.stock) > 0 ? `0 12px 24px ${alpha(theme.palette.primary.main, 0.3)}` : 'none'
                         }
                       }}
                     >
-                      {item.stock === 0 && (
+                      {Number(item.stock) === 0 && (
                         <Box
                           sx={{
                             position: 'absolute',
@@ -371,7 +371,7 @@ export default function UserGachaDetail({ gachaId, onBack }) {
                             left: 0,
                             right: 0,
                             bottom: 0,
-                            background: 'rgba(0,0,0,0.5)',
+                            bgcolor: 'rgba(0, 0, 0, 0.7)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -379,11 +379,13 @@ export default function UserGachaDetail({ gachaId, onBack }) {
                           }}
                         >
                           <Typography
-                            variant="h6"
+                            variant="h5"
                             sx={{
                               color: 'white',
-                              fontWeight: 600,
-                              transform: 'rotate(-15deg)'
+                              fontWeight: 'bold',
+                              transform: 'rotate(-15deg)',
+                              fontSize: '2rem',
+                              textShadow: '2px 2px 4px rgba(0,0,0,0.8)'
                             }}
                           >
                             SOLD OUT
@@ -446,7 +448,7 @@ export default function UserGachaDetail({ gachaId, onBack }) {
                               variant="body2" 
                               sx={{ 
                                 fontWeight: 600,
-                                color: item.stock === 0 ? theme.palette.error.main : theme.palette.success.main
+                                color: Number(item.stock) === 0 ? theme.palette.error.main : theme.palette.success.main
                               }}
                             >
                               {item.stock} / {item.initial_stock}個
@@ -454,14 +456,14 @@ export default function UserGachaDetail({ gachaId, onBack }) {
                           </Box>
                           <LinearProgress
                             variant="determinate"
-                            value={item.initial_stock > 0 ? (item.stock / item.initial_stock) * 100 : 0}
+                            value={item.initial_stock > 0 ? (Number(item.stock) / item.initial_stock) * 100 : 0}
                             sx={{
                               height: 6,
                               borderRadius: 3,
                               backgroundColor: alpha(theme.palette.divider, 0.3),
                               '& .MuiLinearProgress-bar': {
                                 borderRadius: 3,
-                                background: item.stock > 0 
+                                background: Number(item.stock) > 0 
                                   ? `linear-gradient(45deg, ${theme.palette.success.main}, ${alpha(theme.palette.success.main, 0.8)})`
                                   : theme.palette.error.main
                               }
