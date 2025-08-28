@@ -61,29 +61,6 @@ export default function AdminGachaStatus() {
   const stockRatio = stockStats ? 
     (stockStats.totalStock / stockStats.totalInitialStock * 100) : 0;
 
-  // レアリティ別の色分け
-  const getRarityColor = (rarity) => {
-    switch (rarity) {
-      case 'ssr': return '#ff6b35';
-      case 'srare': return '#8e24aa';
-      case 'rare': return '#1976d2';
-      case 'common': return '#388e3c';
-      default: return '#757575';
-    }
-  };
-
-  const getRarityChip = (rarity) => (
-    <Chip 
-      label={rarity?.toUpperCase() || 'COMMON'}
-      size="small"
-      sx={{ 
-        backgroundColor: getRarityColor(rarity),
-        color: 'white',
-        fontWeight: 'bold',
-        minWidth: '60px'
-      }}
-    />
-  );
 
   if (loading) {
     return (
@@ -282,15 +259,14 @@ export default function AdminGachaStatus() {
               
               <TableContainer>
                 <Table>
-                  <TableHead>
-                    <TableRow sx={{ backgroundColor: '#f8f9fa' }}>
-                      <TableCell sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>レアリティ</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>アイテム名</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>残り数</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>初期在庫数</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>消費率</TableCell>
-                    </TableRow>
-                  </TableHead>
+                    <TableHead>
+                      <TableRow sx={{ backgroundColor: '#f8f9fa' }}>
+                        <TableCell sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>アイテム名</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>残り数</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>初期在庫数</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>消費率</TableCell>
+                      </TableRow>
+                    </TableHead>
                   <TableBody>
                     {gacha?.items?.map((item, index) => {
                       const consumedRatio = ((item.initial_stock - item.stock) / item.initial_stock * 100);
@@ -308,9 +284,6 @@ export default function AdminGachaStatus() {
                             '&:hover': { backgroundColor: '#f5f5f5' }
                           }}
                         >
-                          <TableCell>
-                            {getRarityChip(item.rarity)}
-                          </TableCell>
                           <TableCell>
                             <Typography 
                               variant="body2" 
