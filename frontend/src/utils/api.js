@@ -278,6 +278,11 @@ export const myGachaAPI = {
       method: 'PATCH',
     });
   },
+
+  // ガチャ状況取得
+  getGachaStatus: async (gachaId, page = 1) => {
+    return apiRequest(`/api/gachas/${gachaId}/status?page=${page}`);
+  },
 };
 
 // 管理者用ガチャAPI

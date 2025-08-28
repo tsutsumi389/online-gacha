@@ -27,6 +27,7 @@ import AdminGachaManage from './AdminGachaManage';
 import AdminGachaEdit from './AdminGachaEdit';
 import UserGachaList from './UserGachaList';
 import UserGachaDetail from './UserGachaDetail';
+import AdminGachaStatus from './AdminGachaStatus';
 
 import UserProfile from './UserProfile';
 import GachaHistory from './GachaHistory';
@@ -346,6 +347,7 @@ function App() {
             <GachaEditWrapper />
           </PrivateRoute>
         } />
+        <Route path="/my-gacha/:id/status" element={<AdminGachaStatus />} />
         <Route path="/profile" element={
           <PrivateRoute>
             <UserProfile onAvatarUpdate={setUserAvatar} />

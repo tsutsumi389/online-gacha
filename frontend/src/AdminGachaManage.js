@@ -164,6 +164,14 @@ export default function AdminGachaManage() {
                         <IconButton onClick={() => handleDelete(gacha.id)}>
                           <DeleteIcon />
                         </IconButton>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => navigate(`/my-gacha/${gacha.id}/status`)}
+                          sx={{ ml: 1 }}
+                        >
+                          状況確認
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
