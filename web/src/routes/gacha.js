@@ -245,4 +245,37 @@ export default async function gachaRoutes(fastify, options) {
       return reply.code(500).send({ error: 'Internal server error' });
     }
   });
+
+  // ガチャ状況取得
+  fastify.get('/:id/status', async (request, reply) => {
+    const { id } = request.params;
+    const { page = 1, limit = 10 } = request.query;
+
+    try {
+      // ガチャ情報を取得
+      const gacha = await Gacha.findById(id);
+      if (!gacha) {
+        return reply.code(404).send({ error: 'ガチャが見つかりません' });
+      }
+
+      // 当選者リストを取得（ページネーション対応）
+      const offset = (page - 1) * limit;
+      const winners = await Gacha.getWinners(id, limit, offset);
+      const totalWinners = await Gacha.countWinners(id);
+
+      return reply.send({
+        gacha,
+        winners,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalWinners / limit),
+          totalItems: totalWinners,
+          itemsPerPage: limit,
+        },
+      });
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
 }

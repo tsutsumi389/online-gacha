@@ -1181,6 +1181,59 @@ class Gacha {
       throw error;
     }
   }
+
+  // IDでガチャを取得
+  static async findById(id) {
+    try {
+      const query = `
+        SELECT *
+        FROM gachas
+        WHERE id = $1
+      `;
+      const result = await database.query(query, [id]);
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('Error in findById:', error);
+      throw error;
+    }
+  }
+
+  // 当選者リストを取得
+  static async getWinners(gachaId, limit, offset) {
+    try {
+      const query = `
+        SELECT gr.id, u.name as user_name, gi.name as item_name, gr.user_id
+        FROM gacha_results gr
+        JOIN users u ON gr.user_id = u.id
+        JOIN gacha_items gi ON gr.gacha_item_id = gi.id
+        WHERE gi.gacha_id = $1
+        ORDER BY gr.user_id DESC
+        LIMIT $2 OFFSET $3
+      `;
+      const result = await database.query(query, [gachaId, limit, offset]);
+      return result.rows;
+    } catch (error) {
+      console.error('Error in getWinners:', error);
+      throw error;
+    }
+  }
+
+  // 当選者の総数を取得
+  static async countWinners(gachaId) {
+    try {
+      const query = `
+        SELECT COUNT(*)
+        FROM gacha_results gr
+        JOIN gacha_items gi ON gr.gacha_item_id = gi.id
+        WHERE gi.gacha_id = $1
+      `;
+      const result = await database.query(query, [gachaId]);
+      return parseInt(result.rows[0].count, 10);
+    } catch (error) {
+      console.error('Error in countWinners:', error);
+      throw error;
+    }
+  }
 }
 
 export default Gacha;
