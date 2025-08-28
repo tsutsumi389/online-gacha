@@ -28,12 +28,6 @@ migrate-status:
 migrate-down:
 	docker compose exec web npm run migrate -- down
 
-migrate-sharp:
-	@echo "🔄 Running Sharp.js image system migration..."
-	docker compose exec web npm run migrate -- up 1640995200000
-	docker compose exec web npm run migrate -- up 1640995300000
-	@echo "✅ Sharp.js migration completed!"
-
 migrate-check:
 	@echo "📋 Checking migration status..."
 	docker compose exec db psql -U user -d gacha_db -c "SELECT name, run_on FROM migrations ORDER BY id;"
