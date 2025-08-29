@@ -76,7 +76,7 @@ class Gacha {
       // 検索条件を追加
       if (search) {
         paramCount++;
-        query += ` AND (g.name ILIKE ${paramCount} OR g.description ILIKE ${paramCount})`;
+        query += ` AND (g.name ILIKE $${paramCount} OR g.description ILIKE $${paramCount})`;
         params.push(`%${search}%`);
       }
 
@@ -101,11 +101,11 @@ class Gacha {
       // ページネーション
       const offset = (page - 1) * limit;
       paramCount++;
-      query += ` LIMIT ${paramCount}`;
+      query += ` LIMIT $${paramCount}`;
       params.push(limit);
       
       paramCount++;
-      query += ` OFFSET ${paramCount}`;
+      query += ` OFFSET $${paramCount}`;
       params.push(offset);
 
       const result = await database.query(query, params);
@@ -273,7 +273,7 @@ class Gacha {
 
       // 検索条件がある場合
       if (search && search.trim()) {
-        whereClause += ` AND (g.name ILIKE ${paramIndex} OR g.description ILIKE ${paramIndex})`;
+        whereClause += ` AND (g.name ILIKE $${paramIndex} OR g.description ILIKE $${paramIndex})`;
         queryParams.push(`%${search.trim()}%`);
         paramIndex++;
       }
@@ -299,7 +299,7 @@ class Gacha {
         LEFT JOIN gacha_images main_img ON g.id = main_img.gacha_id AND main_img.is_main = true
         ${whereClause}
         ORDER BY g.${sortBy} ${sortOrder.toUpperCase()}
-        LIMIT  + paramIndex + ` OFFSET  + (paramIndex + 1) + `
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `;
       queryParams.push(limit, offset);
 
@@ -739,23 +739,23 @@ class Gacha {
       let paramIndex = 1;
 
       if (name !== undefined) {
-        updateFields.push(`name = ${paramIndex++}`);
+        updateFields.push(`name = $${paramIndex++}`);
         updateValues.push(name);
       }
       if (description !== undefined) {
-        updateFields.push(`description = ${paramIndex++}`);
+        updateFields.push(`description = $${paramIndex++}`);
         updateValues.push(description);
       }
       if (stock !== undefined) {
-        updateFields.push(`stock = ${paramIndex++}`);
+        updateFields.push(`stock = $${paramIndex++}`);
         updateValues.push(stock);
       }
       if (imageUrl !== undefined) {
-        updateFields.push(`image_url = ${paramIndex++}`);
+        updateFields.push(`image_url = $${paramIndex++}`);
         updateValues.push(imageUrl);
       }
       if (isPublic !== undefined) {
-        updateFields.push(`is_public = ${paramIndex++}`);
+        updateFields.push(`is_public = $${paramIndex++}`);
         updateValues.push(isPublic);
       }
 
@@ -769,7 +769,7 @@ class Gacha {
       const query = `
         UPDATE gacha_items
         SET ${updateFields.join(', ')}
-        WHERE id = ${paramIndex}
+        WHERE id = $${paramIndex}
         RETURNING *
       `;
 
