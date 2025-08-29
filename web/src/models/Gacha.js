@@ -299,7 +299,7 @@ class Gacha {
         LEFT JOIN gacha_images main_img ON g.id = main_img.gacha_id AND main_img.is_main = true
         ${whereClause}
         ORDER BY g.${sortBy} ${sortOrder.toUpperCase()}
-        LIMIT $` + paramIndex + ` OFFSET $` + (paramIndex + 1) + `
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `;
       queryParams.push(limit, offset);
 
@@ -531,7 +531,7 @@ class Gacha {
   // ガチャを実行
   static async draw(gachaId, userId) {
     try {
-      // ガチャとアイテム情報を取得（動的在庫計算済み）
+      // ガチャと全アイテム情報を取得（在庫計算含む）
       const gacha = await this.findByIdWithItems(gachaId);
       if (!gacha || !gacha.is_public) {
         throw new Error('Gacha not found or not public');
@@ -541,11 +541,33 @@ class Gacha {
         throw new Error('No items available in this gacha');
       }
 
-      // 在庫のあるアイテムのみをフィルタ（動的計算された残り在庫を使用）
-      // stockは「初期在庫 - gacha_resultsテーブルの排出数」で動的計算された値
-      const availableItems = gacha.items.filter(item => 
-        item.stock === null || item.stock > 0
-      );
+      // --- レアリティ判定ロジック ---
+      // 1. 全アイテムの初期在庫リストを作成し、昇順にソート
+      const allInitialStocks = gacha.items.map(item => item.initial_stock).sort((a, b) => a - b);
+      const totalItems = allInitialStocks.length;
+
+      // 2. レアリティの閾値を決定 (パーセンタイル)
+      // 在庫が少ないアイテムがレアなので、小さい値のパーセンタイルが上位レアリティ
+      const thresholds = {
+        SSR: allInitialStocks[Math.floor(totalItems * 0.05)] ?? allInitialStocks[0],
+        SR: allInitialStocks[Math.floor(totalItems * 0.20)] ?? allInitialStocks[0],
+        R: allInitialStocks[Math.floor(totalItems * 0.50)] ?? allInitialStocks[0],
+      };
+
+      // 3. レアリティを判定するヘルパー関数
+      const getRarity = (initialStock) => {
+        // 在庫数が0以下のアイテムはNとする
+        if (initialStock <= 0) return 'N';
+        // 閾値が同じ場合を考慮し、SSRから順に判定
+        if (initialStock <= thresholds.SSR) return 'SSR';
+        if (initialStock <= thresholds.SR) return 'SR';
+        if (initialStock <= thresholds.R) return 'R';
+        return 'N';
+      };
+      // --- レアリティ判定ロジックここまで ---
+
+      // 在庫のあるアイテムのみをフィルタ（動的計算された残り在庫 `stock` を使用）
+      const availableItems = gacha.items.filter(item => item.stock > 0);
 
       if (availableItems.length === 0) {
         throw new Error('All items are out of stock');
@@ -555,20 +577,22 @@ class Gacha {
       const randomIndex = Math.floor(Math.random() * availableItems.length);
       const selectedItem = availableItems[randomIndex];
 
+      // 選択されたアイテムのレアリティを判定
+      const rarity = getRarity(selectedItem.initial_stock);
+
       // ガチャ結果をgacha_resultsテーブルに記録
-      // 注意: gacha_items.stockカラムは更新しない（初期在庫として固定）
-      // 残り在庫は gacha_results テーブルの履歴から動的計算される
       const resultQuery = `
         INSERT INTO gacha_results (user_id, gacha_id, gacha_item_id)
         VALUES ($1, $2, $3)
         RETURNING *
       `;
-
       const result = await database.query(resultQuery, [userId, gachaId, selectedItem.id]);
 
+      // レスポンスにレアリティを追加
       return {
         result: result.rows[0],
         item: selectedItem,
+        rarity: rarity, // 判定したレアリティ
         gacha: {
           id: gacha.id,
           name: gacha.name,

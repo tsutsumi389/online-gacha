@@ -190,11 +190,10 @@ function ModernStarAnimation({ color = 'gray', onEnd, stopInCenter = false, chan
 }
 
 export default function GachaPerformance({ 
-  type: initialType = 'normal', 
   onBack, 
   result = null
 }) {
-  const [type, setType] = useState(initialType);
+  const [type, setType] = useState('normal'); // 'normal', 'sure', 'reverse'
   const [step, setStep] = useState(0); // 0: start, 1: done
   const [showResult, setShowResult] = useState(false);
   const theme = useTheme();
@@ -205,16 +204,31 @@ export default function GachaPerformance({
       name: 'サンプルアイテム', 
       image_url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=400&fit=crop', 
       description: 'ガチャで獲得したアイテムです'
-    }
+    },
+    rarity: 'N' // デフォルトレアリティ
   };
 
   const currentResult = result || defaultResult;
 
   useEffect(() => {
-    setType(initialType);
+    if (currentResult && currentResult.rarity) {
+      const rarity = currentResult.rarity;
+      // レアリティに基づいて演出タイプを決定
+      if (rarity === 'SSR' || rarity === 'SR') {
+        setType('sure');
+      } else { // R or N
+        // 20%の確率で逆転演出
+        if (Math.random() < 0.2) {
+          setType('reverse');
+        } else {
+          setType('normal');
+        }
+      }
+    }
+    // ステートをリセット
     setStep(0);
     setShowResult(false);
-  }, [initialType]);
+  }, [currentResult]);
 
   const handleAnimationEnd = () => {
     setStep(1);
@@ -254,14 +268,16 @@ export default function GachaPerformance({
 
   const currentConfig = getPerformanceConfig(type);
 
-  const getRarityColor = (rarity) => {
+  const getRarityConfig = (rarity) => {
     switch (rarity) {
-      case 'SSR': return '#ff1744';
-      case 'SR': return '#ff9800';
-      case 'R': return '#2196f3';
-      default: return '#9e9e9e';
+      case 'SSR': return { color: '#ff1744', animColor: 'red', animHighlight: 'red' };
+      case 'SR': return { color: '#ff9800', animColor: 'gold', animHighlight: 'gold' };
+      case 'R': return { color: '#2196f3', animColor: 'gray', animHighlight: 'gold' };
+      default: return { color: '#9e9e9e', animColor: 'gray', animHighlight: 'gold' };
     }
   };
+
+  const rarityConfig = getRarityConfig(currentResult.rarity);
 
   return (
     <Backdrop
@@ -363,48 +379,18 @@ export default function GachaPerformance({
               >
                 {currentConfig.subtitle}
               </Typography>
-
-              {/* 演出タイプ選択 */}
-              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
-                {[
-                  { key: 'normal', label: '通常', icon: <CasinoIcon /> },
-                  { key: 'sure', label: '確定', icon: <AutoAwesomeIcon /> },
-                  { key: 'reverse', label: '逆転', icon: <CelebrationIcon /> }
-                ].map(({ key, label, icon }) => (
-                  <Button
-                    key={key}
-                    variant={type === key ? 'contained' : 'outlined'}
-                    startIcon={icon}
-                    onClick={() => { 
-                      setType(key); 
-                      setStep(0); 
-                      setShowResult(false); 
-                    }}
-                    sx={{
-                      borderRadius: 3,
-                      px: 3,
-                      ...(type === key && {
-                        background: `linear-gradient(45deg, ${currentConfig.color}, ${alpha(currentConfig.color, 0.8)})`,
-                        boxShadow: `0 4px 12px ${alpha(currentConfig.color, 0.4)}`
-                      })
-                    }}
-                  >
-                    {label}
-                  </Button>
-                ))}
-              </Box>
             </Box>
 
             {/* アニメーション領域 */}
-            <Box sx={{ mb: 4, position: 'relative', zIndex: 1 }}>
-              {type === 'normal' && step === 0 && (
-                <ModernStarAnimation color="gray" onEnd={handleAnimationEnd} />
+            <Box sx={{ mb: 4, position: 'relative', zIndex: 1, minHeight: 200 }}>
+              {step === 0 && type === 'normal' && (
+                <ModernStarAnimation color={rarityConfig.animColor} onEnd={handleAnimationEnd} />
               )}
-              {type === 'sure' && step === 0 && (
-                <ModernStarAnimation color="red" onEnd={handleAnimationEnd} />
+              {step === 0 && type === 'sure' && (
+                <ModernStarAnimation color={rarityConfig.animColor} onEnd={handleAnimationEnd} />
               )}
-              {type === 'reverse' && step === 0 && (
-                <ModernStarAnimation color="gray" stopInCenter changeColor="red" onEnd={handleAnimationEnd} />
+              {step === 0 && type === 'reverse' && (
+                <ModernStarAnimation color={rarityConfig.animColor} stopInCenter changeColor={rarityConfig.animHighlight} onEnd={handleAnimationEnd} />
               )}
             </Box>
 
@@ -424,7 +410,7 @@ export default function GachaPerformance({
                       maxWidth: 400,
                       borderRadius: 3,
                       background: `linear-gradient(135deg, ${alpha(theme.palette.background.paper, 0.95)} 0%, ${alpha(theme.palette.background.paper, 0.98)} 100%)`,
-                      border: `3px solid ${getRarityColor(result.rarity)}`,
+                      border: `3px solid ${rarityConfig.color}`,
                       position: 'relative',
                       overflow: 'hidden'
                     }}
@@ -437,7 +423,7 @@ export default function GachaPerformance({
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        background: `radial-gradient(circle, ${alpha(getRarityColor(result.rarity), 0.1)} 0%, transparent 70%)`,
+                        background: `radial-gradient(circle, ${alpha(rarityConfig.color, 0.1)} 0%, transparent 70%)`,
                         pointerEvents: 'none'
                       }}
                     />
