@@ -40,7 +40,7 @@ function GachaAnalyticsDashboard() {
 
   const loadDashboardData = async () => {
     try {
-      const response = await api.get('/admin/analytics/dashboard');
+      const response = await api.get('/api/admin/analytics/dashboard');
       setDashboardData(response.data);
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
@@ -50,7 +50,7 @@ function GachaAnalyticsDashboard() {
 
   const loadCategoryStats = async () => {
     try {
-      const response = await api.get('/admin/analytics/category-stats');
+      const response = await api.get('/api/admin/analytics/category-stats');
       setCategoryStats(response.data);
     } catch (err) {
       console.error('Failed to load category stats:', err);
@@ -59,7 +59,7 @@ function GachaAnalyticsDashboard() {
 
   const loadUserBehavior = async () => {
     try {
-      const response = await api.get('/admin/analytics/user-behavior', {
+      const response = await api.get('/api/admin/analytics/user-behavior', {
         params: { days: 7 }
       });
       setUserBehavior(response.data);
@@ -71,7 +71,7 @@ function GachaAnalyticsDashboard() {
   const loadGachaDetails = async (gachaId, range = '30days') => {
     try {
       setLoading(true);
-      const response = await api.get(`/admin/analytics/gacha-analytics/${gachaId}`, {
+      const response = await api.get(`/api/admin/analytics/gacha-analytics/${gachaId}`, {
         params: { dateRange: range }
       });
       setGachaDetails(response.data);
@@ -100,7 +100,7 @@ function GachaAnalyticsDashboard() {
   const updateStats = async () => {
     try {
       setLoading(true);
-      await api.post('/admin/analytics/update-stats');
+      await api.post('/api/admin/analytics/update-stats');
       // データを再読み込み
       await loadDashboardData();
       await loadCategoryStats();
