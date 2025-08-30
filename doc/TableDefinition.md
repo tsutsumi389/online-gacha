@@ -1,4 +1,4 @@
-# オンラインガチャシステム テーブル定義（ドラフト）
+# オンラインガチャシステム テーブル定義（実装版）
 
 ## users（ユーザー情報）
 | カラム名         | 型           | 制約           | 説明           |
@@ -8,11 +8,24 @@
 | email            | VARCHAR(255) | UNIQUE,NOT NULL| メールアドレス |
 | password_hash    | VARCHAR(255) | NOT NULL       | パスワードハッシュ |
 | avatar_image_id  | INTEGER      | FOREIGN KEY    | ユーザーアイコン画像ID |
+| total_draws      | INTEGER      | NOT NULL, DEFAULT 0 | 総ガチャ抽選回数 |
+| last_login_at    | TIMESTAMP    |                | 最終ログイン日時 |
+| signup_source    | VARCHAR(50)  |                | 登録流入元 |
+| gender           | VARCHAR(10)  | CHECK IN ('male','female','other','prefer_not_to_say') | 性別 |
+| birth_year       | INTEGER      | CHECK (1900 <= birth_year <= CURRENT_YEAR) | 生年 |
 | created_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 登録日時       |
 | updated_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 更新日時       |
 
 **制約**:
 - FOREIGN KEY (avatar_image_id) REFERENCES user_avatar_images(id) ON DELETE SET NULL
+
+**インデックス**:
+- `idx_users_total_draws` (total_draws)
+- `idx_users_last_login_at` (last_login_at)
+- `idx_users_gender` (gender)
+- `idx_users_birth_year` (birth_year)
+- `idx_users_signup_source` (signup_source)
+- `idx_users_avatar_image_id` (avatar_image_id)
 
 **注意**: roleカラムは削除されました。すべてのユーザーは同等の権限を持ち、ガチャの作成と実行の両方が可能です。
 
@@ -181,9 +194,9 @@
 | カラム名         | 型           | 制約           | 説明           |
 |------------------|--------------|----------------|----------------|
 | id               | SERIAL       | PRIMARY KEY    | 履歴ID         |
-| user_id          | INTEGER      | FOREIGN KEY (users.id) | ユーザーID     |
-| gacha_id         | INTEGER      | FOREIGN KEY (gachas.id) | ガチャID       |
-| gacha_item_id    | INTEGER      | FOREIGN KEY (gacha_items.id) | 当選商品ID     |
+| user_id          | INTEGER      | NOT NULL, FOREIGN KEY (users.id) | ユーザーID     |
+| gacha_id         | INTEGER      | NOT NULL, FOREIGN KEY (gachas.id) | ガチャID       |
+| gacha_item_id    | INTEGER      | NOT NULL, FOREIGN KEY (gacha_items.id) | 当選商品ID     |
 | executed_at      | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 実行日時       |
 
 **制約**:
@@ -192,9 +205,9 @@
 - FOREIGN KEY (gacha_item_id) REFERENCES gacha_items(id) ON DELETE CASCADE
 
 **インデックス**:
-- `gacha_results_user_id_idx` (user_id)
-- `gacha_results_gacha_id_idx` (gacha_id)
-- `gacha_results_gacha_item_id_idx` (gacha_item_id)
+- `idx_gacha_results_user_id` (user_id)
+- `idx_gacha_results_gacha_id` (gacha_id)
+- `idx_gacha_results_gacha_item_id` (gacha_item_id)
 
 ## admin_operation_logs（ユーザー操作ログ）
 | カラム名         | 型           | 制約           | 説明           |
@@ -206,6 +219,298 @@
 | target_id        | INTEGER      |                | 対象ID         |
 | detail           | TEXT         |                | 詳細           |
 | created_at       | TIMESTAMP    | NOT NULL       | 操作日時       |
+
+## gacha_statistics（ガチャ統計）
+| カラム名               | 型           | 制約           | 説明           |
+|------------------------|--------------|----------------|----------------|
+| id                     | SERIAL       | PRIMARY KEY    | 統計ID         |
+| gacha_id               | INTEGER      | NOT NULL, FOREIGN KEY | ガチャID       |
+| total_draws            | INTEGER      | NOT NULL, DEFAULT 0 | 総抽選回数     |
+| unique_users           | INTEGER      | NOT NULL, DEFAULT 0 | ユニークユーザー数 |
+| total_revenue          | BIGINT       | NOT NULL, DEFAULT 0 | 総収益         |
+| avg_draws_per_user     | DECIMAL(10,2)|                | 1ユーザー当たり平均抽選回数 |
+| most_popular_item_id   | INTEGER      | FOREIGN KEY    | 最人気アイテムID |
+| male_users             | INTEGER      | NOT NULL, DEFAULT 0 | 男性ユーザー数 |
+| female_users           | INTEGER      | NOT NULL, DEFAULT 0 | 女性ユーザー数 |
+| other_gender_users     | INTEGER      | NOT NULL, DEFAULT 0 | その他性別ユーザー数 |
+| unknown_gender_users   | INTEGER      | NOT NULL, DEFAULT 0 | 性別不明ユーザー数 |
+| avg_user_age           | DECIMAL(4,2) |                | 平均ユーザー年齢 |
+| age_10s_users          | INTEGER      | NOT NULL, DEFAULT 0 | 10代ユーザー数 |
+| age_20s_users          | INTEGER      | NOT NULL, DEFAULT 0 | 20代ユーザー数 |
+| age_30s_users          | INTEGER      | NOT NULL, DEFAULT 0 | 30代ユーザー数 |
+| age_40s_users          | INTEGER      | NOT NULL, DEFAULT 0 | 40代ユーザー数 |
+| age_50s_users          | INTEGER      | NOT NULL, DEFAULT 0 | 50代ユーザー数 |
+| age_60plus_users       | INTEGER      | NOT NULL, DEFAULT 0 | 60代以上ユーザー数 |
+| unknown_age_users      | INTEGER      | NOT NULL, DEFAULT 0 | 年齢不明ユーザー数 |
+| last_calculated        | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 最終計算日時 |
+| created_at             | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 作成日時 |
+| updated_at             | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 更新日時 |
+
+**制約**:
+- FOREIGN KEY (gacha_id) REFERENCES gachas(id) ON DELETE CASCADE
+- FOREIGN KEY (most_popular_item_id) REFERENCES gacha_items(id)
+
+**インデックス**:
+- `idx_gacha_statistics_gacha_id` (gacha_id)
+- `idx_gacha_statistics_total_draws` (total_draws)
+
+## user_activity_logs（ユーザー行動ログ）
+| カラム名         | 型           | 制約           | 説明           |
+|------------------|--------------|----------------|----------------|
+| id               | SERIAL       | PRIMARY KEY    | ログID         |
+| user_id          | INTEGER      | NOT NULL, FOREIGN KEY | ユーザーID     |
+| action_type      | VARCHAR(50)  | NOT NULL       | 行動種別       |
+| gacha_id         | INTEGER      | FOREIGN KEY    | ガチャID       |
+| gacha_item_id    | INTEGER      | FOREIGN KEY    | ガチャアイテムID |
+| session_id       | VARCHAR(255) |                | セッションID   |
+| ip_address       | INET         |                | IPアドレス     |
+| user_agent       | TEXT         |                | ユーザーエージェント |
+| created_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 作成日時 |
+
+**制約**:
+- FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+- FOREIGN KEY (gacha_id) REFERENCES gachas(id) ON DELETE CASCADE
+- FOREIGN KEY (gacha_item_id) REFERENCES gacha_items(id) ON DELETE CASCADE
+
+**インデックス**:
+- `idx_user_activity_logs_user_id` (user_id)
+- `idx_user_activity_logs_gacha_id` (gacha_id)
+- `idx_user_activity_logs_action_type` (action_type)
+- `idx_user_activity_logs_created_at` (created_at)
+
+## gacha_hourly_stats（時間別統計）
+| カラム名         | 型           | 制約           | 説明           |
+|------------------|--------------|----------------|----------------|
+| id               | SERIAL       | PRIMARY KEY    | 統計ID         |
+| gacha_id         | INTEGER      | NOT NULL, FOREIGN KEY | ガチャID       |
+| hour_bucket      | TIMESTAMP    | NOT NULL       | 1時間単位集計時間 |
+| draws_count      | INTEGER      | NOT NULL, DEFAULT 0 | 抽選回数       |
+| unique_users     | INTEGER      | NOT NULL, DEFAULT 0 | ユニークユーザー数 |
+| revenue          | BIGINT       | NOT NULL, DEFAULT 0 | 収益           |
+| created_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 作成日時 |
+
+**制約**:
+- FOREIGN KEY (gacha_id) REFERENCES gachas(id) ON DELETE CASCADE
+- UNIQUE(gacha_id, hour_bucket)
+
+**インデックス**:
+- `idx_gacha_hourly_stats_gacha_id` (gacha_id)
+- `idx_gacha_hourly_stats_hour_bucket` (hour_bucket)
+
+## user_preferences（ユーザー設定）
+| カラム名              | 型           | 制約           | 説明           |
+|-----------------------|--------------|----------------|----------------|
+| id                    | SERIAL       | PRIMARY KEY    | 設定ID         |
+| user_id               | INTEGER      | NOT NULL, UNIQUE, FOREIGN KEY | ユーザーID     |
+| sort_preference       | VARCHAR(50)  | NOT NULL, DEFAULT 'newest' | 表示順設定     |
+| theme_preference      | VARCHAR(20)  | DEFAULT 'light'| テーマ設定     |
+| notification_enabled  | BOOLEAN      | NOT NULL, DEFAULT true | 通知有効      |
+| language              | VARCHAR(10)  | DEFAULT 'ja'   | 言語設定       |
+| created_at            | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 作成日時 |
+| updated_at            | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 更新日時 |
+
+**制約**:
+- FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+
+**インデックス**:
+- `idx_user_preferences_user_id` (user_id)
+
+## gacha_categories（ガチャカテゴリ）
+| カラム名         | 型           | 制約           | 説明           |
+|------------------|--------------|----------------|----------------|
+| id               | SERIAL       | PRIMARY KEY    | カテゴリID     |
+| name             | VARCHAR(100) | NOT NULL, UNIQUE | カテゴリ名     |
+| description      | TEXT         |                | 説明           |
+| created_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 作成日時 |
+
+**インデックス**:
+- `idx_gacha_categories_name` (name)
+
+## user_interest_categories（ユーザー興味カテゴリ）
+| カラム名         | 型           | 制約           | 説明           |
+|------------------|--------------|----------------|----------------|
+| id               | SERIAL       | PRIMARY KEY    | 興味ID         |
+| user_id          | INTEGER      | NOT NULL, FOREIGN KEY | ユーザーID     |
+| category_id      | INTEGER      | NOT NULL, FOREIGN KEY | カテゴリID     |
+| interest_level   | INTEGER      | NOT NULL, DEFAULT 1, CHECK (1-5) | 興味レベル |
+| created_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 作成日時 |
+
+**制約**:
+- FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+- FOREIGN KEY (category_id) REFERENCES gacha_categories(id) ON DELETE CASCADE
+- UNIQUE(user_id, category_id)
+- CHECK (interest_level >= 1 AND interest_level <= 5)
+
+**インデックス**:
+- `idx_user_interest_categories_user_id` (user_id)
+- `idx_user_interest_categories_category_id` (category_id)
+
+## gacha_category_mappings（ガチャカテゴリマッピング）
+| カラム名         | 型           | 制約           | 説明           |
+|------------------|--------------|----------------|----------------|
+| id               | SERIAL       | PRIMARY KEY    | マッピングID   |
+| gacha_id         | INTEGER      | NOT NULL, FOREIGN KEY | ガチャID       |
+| category_id      | INTEGER      | NOT NULL, FOREIGN KEY | カテゴリID     |
+| created_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 作成日時 |
+
+**制約**:
+- FOREIGN KEY (gacha_id) REFERENCES gachas(id) ON DELETE CASCADE
+- FOREIGN KEY (category_id) REFERENCES gacha_categories(id) ON DELETE CASCADE
+- UNIQUE(gacha_id, category_id)
+
+**インデックス**:
+- `idx_gacha_category_mappings_gacha_id` (gacha_id)
+- `idx_gacha_category_mappings_category_id` (category_id)
+
+## gacha_demographic_stats（ガチャデモグラフィック統計）
+| カラム名         | 型           | 制約           | 説明           |
+|------------------|--------------|----------------|----------------|
+| id               | SERIAL       | PRIMARY KEY    | 統計ID         |
+| gacha_id         | INTEGER      | NOT NULL, FOREIGN KEY | ガチャID       |
+| date_bucket      | DATE         | NOT NULL       | 日別集計       |
+| gender           | VARCHAR(10)  | CHECK IN ('male','female','other','unknown') | 性別 |
+| age_group        | VARCHAR(10)  | CHECK IN ('10s','20s','30s','40s','50s','60plus','unknown') | 年齢層 |
+| draws_count      | INTEGER      | NOT NULL, DEFAULT 0 | 抽選回数       |
+| unique_users     | INTEGER      | NOT NULL, DEFAULT 0 | ユニークユーザー数 |
+| revenue          | BIGINT       | NOT NULL, DEFAULT 0 | 収益           |
+| created_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 作成日時 |
+
+**制約**:
+- FOREIGN KEY (gacha_id) REFERENCES gachas(id) ON DELETE CASCADE
+- UNIQUE(gacha_id, date_bucket, gender, age_group)
+
+**インデックス**:
+- `idx_gacha_demographic_stats_gacha_id` (gacha_id)
+- `idx_gacha_demographic_stats_date_bucket` (date_bucket)
+- `idx_gacha_demographic_stats_gender` (gender)
+- `idx_gacha_demographic_stats_age_group` (age_group)
+
+## user_gacha_ratings（ユーザーガチャ評価）
+| カラム名         | 型           | 制約           | 説明           |
+|------------------|--------------|----------------|----------------|
+| id               | SERIAL       | PRIMARY KEY    | 評価ID         |
+| user_id          | INTEGER      | NOT NULL, FOREIGN KEY | ユーザーID     |
+| gacha_id         | INTEGER      | NOT NULL, FOREIGN KEY | ガチャID       |
+| rating           | INTEGER      | NOT NULL, CHECK (1-5) | 評価（1-5星） |
+| review           | TEXT         |                | レビューテキスト |
+| is_favorite      | BOOLEAN      | NOT NULL, DEFAULT FALSE | お気に入り |
+| created_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 作成日時 |
+| updated_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 更新日時 |
+
+**制約**:
+- FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+- FOREIGN KEY (gacha_id) REFERENCES gachas(id) ON DELETE CASCADE
+- UNIQUE(user_id, gacha_id)
+- CHECK (rating >= 1 AND rating <= 5)
+
+**インデックス**:
+- `idx_user_gacha_ratings_user_id` (user_id)
+- `idx_user_gacha_ratings_gacha_id` (gacha_id)
+- `idx_user_gacha_ratings_rating` (rating)
+- `idx_user_gacha_ratings_is_favorite` (is_favorite)
+
+## ab_tests（A/Bテスト定義）
+| カラム名            | 型           | 制約           | 説明           |
+|---------------------|--------------|----------------|----------------|
+| id                  | SERIAL       | PRIMARY KEY    | テストID       |
+| name                | VARCHAR(100) | NOT NULL, UNIQUE | テスト名       |
+| description         | TEXT         |                | 説明           |
+| variants            | JSONB        | NOT NULL       | バリアント定義 |
+| traffic_allocation  | INTEGER      | NOT NULL, DEFAULT 100, CHECK (0-100) | トラフィック配分 |
+| target_criteria     | JSONB        | DEFAULT '{}'   | ターゲット条件 |
+| config              | JSONB        | DEFAULT '{}'   | テスト設定     |
+| start_date          | TIMESTAMP    |                | 開始日時       |
+| end_date            | TIMESTAMP    |                | 終了日時       |
+| status              | VARCHAR(20)  | NOT NULL, DEFAULT 'draft', CHECK | ステータス |
+| created_at          | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 作成日時 |
+| updated_at          | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 更新日時 |
+| created_by          | INTEGER      | FOREIGN KEY    | 作成者         |
+
+**制約**:
+- CHECK (status IN ('draft', 'active', 'paused', 'completed'))
+- CHECK (traffic_allocation >= 0 AND traffic_allocation <= 100)
+- FOREIGN KEY (created_by) REFERENCES users(id)
+
+**インデックス**:
+- `idx_ab_tests_name` (name)
+- `idx_ab_tests_status` (status)
+- `idx_ab_tests_dates` (start_date, end_date)
+
+## ab_test_assignments（A/Bテストユーザー割り当て）
+| カラム名         | 型           | 制約           | 説明           |
+|------------------|--------------|----------------|----------------|
+| id               | SERIAL       | PRIMARY KEY    | 割り当てID     |
+| test_id          | INTEGER      | NOT NULL, FOREIGN KEY | テストID       |
+| user_id          | INTEGER      | NOT NULL, FOREIGN KEY | ユーザーID     |
+| variant          | VARCHAR(100) | NOT NULL       | バリアント     |
+| user_context     | JSONB        | DEFAULT '{}'   | ユーザーコンテキスト |
+| assigned_at      | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 割り当て日時 |
+
+**制約**:
+- FOREIGN KEY (test_id) REFERENCES ab_tests(id) ON DELETE CASCADE
+- FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+- UNIQUE(test_id, user_id)
+
+**インデックス**:
+- `idx_ab_test_assignments_test_id` (test_id)
+- `idx_ab_test_assignments_user_id` (user_id)
+- `idx_ab_test_assignments_variant` (test_id, variant)
+- `idx_ab_test_assignments_assigned_at` (assigned_at)
+
+## ab_test_events（A/Bテストイベント記録）
+| カラム名         | 型           | 制約           | 説明           |
+|------------------|--------------|----------------|----------------|
+| id               | SERIAL       | PRIMARY KEY    | イベントID     |
+| test_id          | INTEGER      | NOT NULL, FOREIGN KEY | テストID       |
+| user_id          | INTEGER      | NOT NULL, FOREIGN KEY | ユーザーID     |
+| event_type       | VARCHAR(50)  | NOT NULL       | イベント種別   |
+| event_data       | JSONB        | DEFAULT '{}'   | イベントデータ |
+| timestamp        | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | イベント日時 |
+
+**制約**:
+- FOREIGN KEY (test_id) REFERENCES ab_tests(id) ON DELETE CASCADE
+- FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+
+**インデックス**:
+- `idx_ab_test_events_test_id` (test_id)
+- `idx_ab_test_events_user_id` (user_id)
+- `idx_ab_test_events_event_type` (event_type)
+- `idx_ab_test_events_timestamp` (timestamp)
+
+## ab_test_conversions（A/Bテストコンバージョン集計）
+| カラム名         | 型           | 制約           | 説明           |
+|------------------|--------------|----------------|----------------|
+| id               | SERIAL       | PRIMARY KEY    | コンバージョンID |
+| test_id          | INTEGER      | NOT NULL, FOREIGN KEY | テストID       |
+| variant          | VARCHAR(100) | NOT NULL       | バリアント     |
+| goal_name        | VARCHAR(100) | NOT NULL       | ゴール名       |
+| conversions      | INTEGER      | NOT NULL, DEFAULT 0 | コンバージョン数 |
+| total_value      | DECIMAL(15,2)| NOT NULL, DEFAULT 0 | 総価値         |
+| created_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 作成日時 |
+| updated_at       | TIMESTAMP    | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 更新日時 |
+
+**制約**:
+- FOREIGN KEY (test_id) REFERENCES ab_tests(id) ON DELETE CASCADE
+- UNIQUE(test_id, variant, goal_name)
+
+**インデックス**:
+- `idx_ab_test_conversions_test_id` (test_id)
+- `idx_ab_test_conversions_variant` (test_id, variant)
+- `idx_ab_test_conversions_goal` (goal_name)
+
+---
+
+## 📊 データベースビューとファンクション
+
+### v_users_with_demographics（年齢グループ付きユーザービュー）
+ユーザー情報に年齢グループと現在年齢を動的に計算して提供するビュー。
+- 年齢グループ: '10s', '20s', '30s', '40s', '50s', '60plus', 'unknown'
+- 現在年齢: 生年から計算した実年齢
+
+### v_ab_test_results（A/Bテスト結果ビュー）
+A/Bテストの結果統計を提供するビュー。
+- バリアント別のユーザー数、コンバージョン率、平均価値
+- テスト全体の統計サマリー
 
 ---
 
