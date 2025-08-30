@@ -194,9 +194,13 @@ export default function GachaPerformance({
   result = null
 }) {
   const [type, setType] = useState('normal'); // 'normal', 'sure', 'reverse'
-  const [step, setStep] = useState(0); // 0: start, 1: done
+  const [step, setStep] = useState(-1); // -1: ready, 0: start, 1: done
   const [showResult, setShowResult] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
   const theme = useTheme();
+  
+  // 音響効果用のref
+  const audioRef = useRef(null);
 
   // デフォルトの結果データ（resultがnullの場合に使用）
   const defaultResult = { 
@@ -226,13 +230,155 @@ export default function GachaPerformance({
       }
     }
     // ステートをリセット
-    setStep(0);
+    setStep(-1);
     setShowResult(false);
+    setIsAnimating(false);
   }, [currentResult]);
 
   const handleAnimationEnd = () => {
     setStep(1);
+    setIsAnimating(false);
     setTimeout(() => setShowResult(true), 500);
+  };
+
+  const startAnimation = () => {
+    if (step !== -1) return;
+    setStep(0);
+    setIsAnimating(true);
+    
+    // 音響効果を再生
+    playSound();
+  };
+
+  const playSound = () => {
+    try {
+      // Web Audio APIを使用して音響効果を生成
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      
+      // レアリティに基づいて音を変える
+      const rarity = currentResult.rarity;
+      
+      if (rarity === 'SSR') {
+        playSSRSound(audioContext);
+      } else if (rarity === 'SR') {
+        playSRSound(audioContext);
+      } else if (rarity === 'R') {
+        playRSound(audioContext);
+      } else {
+        playNormalSound(audioContext);
+      }
+    } catch (error) {
+      console.warn('音響効果の再生に失敗しました:', error);
+    }
+  };
+
+  // SSR用の豪華な音響効果
+  const playSSRSound = (audioContext) => {
+    const now = audioContext.currentTime;
+    
+    // メロディー部分
+    const frequencies = [523, 659, 784, 1047]; // C5, E5, G5, C6
+    frequencies.forEach((freq, index) => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.setValueAtTime(freq, now + index * 0.2);
+      oscillator.type = 'triangle';
+      
+      gainNode.gain.setValueAtTime(0, now + index * 0.2);
+      gainNode.gain.linearRampToValueAtTime(0.2, now + index * 0.2 + 0.1);
+      gainNode.gain.linearRampToValueAtTime(0, now + index * 0.2 + 0.4);
+      
+      oscillator.start(now + index * 0.2);
+      oscillator.stop(now + index * 0.2 + 0.4);
+    });
+    
+    // キラキラエフェクト
+    for (let i = 0; i < 8; i++) {
+      setTimeout(() => {
+        const sparkleOsc = audioContext.createOscillator();
+        const sparkleGain = audioContext.createGain();
+        
+        sparkleOsc.connect(sparkleGain);
+        sparkleGain.connect(audioContext.destination);
+        
+        sparkleOsc.frequency.setValueAtTime(1200 + Math.random() * 800, audioContext.currentTime);
+        sparkleOsc.type = 'sine';
+        
+        sparkleGain.gain.setValueAtTime(0, audioContext.currentTime);
+        sparkleGain.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.05);
+        sparkleGain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.2);
+        
+        sparkleOsc.start(audioContext.currentTime);
+        sparkleOsc.stop(audioContext.currentTime + 0.2);
+      }, i * 100);
+    }
+  };
+
+  // SR用の音響効果
+  const playSRSound = (audioContext) => {
+    const now = audioContext.currentTime;
+    const frequencies = [440, 554, 659]; // A4, C#5, E5
+    
+    frequencies.forEach((freq, index) => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.setValueAtTime(freq, now + index * 0.15);
+      oscillator.type = 'square';
+      
+      gainNode.gain.setValueAtTime(0, now + index * 0.15);
+      gainNode.gain.linearRampToValueAtTime(0.15, now + index * 0.15 + 0.08);
+      gainNode.gain.linearRampToValueAtTime(0, now + index * 0.15 + 0.3);
+      
+      oscillator.start(now + index * 0.15);
+      oscillator.stop(now + index * 0.15 + 0.3);
+    });
+  };
+
+  // R用の音響効果
+  const playRSound = (audioContext) => {
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.setValueAtTime(550, audioContext.currentTime);
+    oscillator.frequency.linearRampToValueAtTime(660, audioContext.currentTime + 0.5);
+    oscillator.type = 'sawtooth';
+    
+    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.1);
+    gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.8);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.8);
+  };
+
+  // N用のシンプルな音響効果
+  const playNormalSound = (audioContext) => {
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
+    oscillator.type = 'sine';
+    
+    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.08, audioContext.currentTime + 0.1);
+    gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.6);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.6);
   };
 
   const animationDone = step === 1;
@@ -338,7 +484,7 @@ export default function GachaPerformance({
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
                 <IconButton
                   onClick={onBack}
-                  disabled={!animationDone}
+                  disabled={isAnimating}
                   sx={{
                     background: alpha(theme.palette.background.paper, 0.8),
                     '&:hover': {
@@ -349,7 +495,16 @@ export default function GachaPerformance({
                   <ArrowBackIcon />
                 </IconButton>
 
-                <IconButton sx={{ color: currentConfig.color }}>
+                <IconButton 
+                  onClick={step === -1 ? startAnimation : playSound}
+                  sx={{ 
+                    color: currentConfig.color,
+                    background: alpha(currentConfig.color, 0.1),
+                    '&:hover': {
+                      background: alpha(currentConfig.color, 0.2)
+                    }
+                  }}
+                >
                   <VolumeUpIcon />
                 </IconButton>
               </Box>
@@ -383,6 +538,76 @@ export default function GachaPerformance({
 
             {/* アニメーション領域 */}
             <Box sx={{ mb: 4, position: 'relative', zIndex: 1, minHeight: 200 }}>
+              {step === -1 && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <Paper
+                    sx={{
+                      height: 200,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: `radial-gradient(circle, ${alpha(theme.palette.primary.dark, 0.1)} 0%, ${alpha(theme.palette.background.default, 0.9)} 100%)`,
+                      borderRadius: 3,
+                      border: `2px dashed ${alpha(currentConfig.color, 0.3)}`,
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        border: `2px dashed ${alpha(currentConfig.color, 0.6)}`,
+                        transform: 'scale(1.02)',
+                        boxShadow: `0 8px 24px ${alpha(currentConfig.color, 0.2)}`
+                      }
+                    }}
+                    onClick={startAnimation}
+                  >
+                    <Box sx={{ textAlign: 'center' }}>
+                      <motion.div
+                        animate={{ 
+                          scale: [1, 1.1, 1],
+                          rotate: [0, 5, -5, 0]
+                        }}
+                        transition={{ 
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                      >
+                        <CasinoIcon 
+                          sx={{ 
+                            fontSize: 80, 
+                            color: currentConfig.color,
+                            mb: 2,
+                            filter: `drop-shadow(0 4px 8px ${alpha(currentConfig.color, 0.3)})`
+                          }} 
+                        />
+                      </motion.div>
+                      <Typography 
+                        variant="h6" 
+                        sx={{ 
+                          color: currentConfig.color,
+                          fontWeight: 600,
+                          mb: 1
+                        }}
+                      >
+                        ガチャを引く準備完了！
+                      </Typography>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          color: theme.palette.text.secondary,
+                          fontStyle: 'italic'
+                        }}
+                      >
+                        クリックして演出を開始
+                      </Typography>
+                    </Box>
+                  </Paper>
+                </motion.div>
+              )}
+              
               {step === 0 && type === 'normal' && (
                 <ModernStarAnimation color={rarityConfig.animColor} onEnd={handleAnimationEnd} />
               )}
