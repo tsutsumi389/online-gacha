@@ -21,6 +21,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { gachaAPI } from './utils/api';
 import { handleApiError } from './utils/api';
 import GachaPerformance from './GachaPerformance';
+import sseClient from './utils/sseClient';
 
 export default function UserGachaDetail({ gachaId, onBack }) {
   const navigate = useNavigate();
@@ -54,6 +55,55 @@ export default function UserGachaDetail({ gachaId, onBack }) {
     fetchGachaDetail();
   }, [gachaId]);
 
+  // SSE接続とリアルタイム更新
+  useEffect(() => {
+    if (!gachaId) return;
+
+    const connectionId = `gacha-detail-${gachaId}`;
+    const sseEndpoint = `${process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080'}/api/gachas/${gachaId}/detail/stream`;
+
+    // SSE接続
+    try {
+      sseClient.connect(connectionId, sseEndpoint);
+
+      // ガチャ詳細更新イベントリスナー
+      const handleGachaDetailUpdate = (data) => {
+        console.log('Received gacha detail update:', data);
+        setGacha(prevGacha => {
+          if (!prevGacha) return prevGacha;
+          
+          // アイテムの在庫情報を更新
+          const updatedItems = prevGacha.items.map(item => {
+            const updatedItem = data.items.find(updateItem => updateItem.id === item.id);
+            if (updatedItem) {
+              return {
+                ...item,
+                stock: updatedItem.stock.toString(),
+                initial_stock: updatedItem.initialStock.toString()
+              };
+            }
+            return item;
+          });
+
+          return {
+            ...prevGacha,
+            items: updatedItems
+          };
+        });
+      };
+
+      sseClient.on(connectionId, 'gacha-detail-update', handleGachaDetailUpdate);
+
+      // クリーンアップ
+      return () => {
+        sseClient.off(connectionId, 'gacha-detail-update', handleGachaDetailUpdate);
+        sseClient.disconnect(connectionId);
+      };
+    } catch (error) {
+      console.error('SSE connection failed:', error);
+    }
+  }, [gachaId]);
+
   const handleDraw = async (type) => {
     try {
       const count = type === 'multi' ? 10 : 1;
@@ -63,9 +113,7 @@ export default function UserGachaDetail({ gachaId, onBack }) {
       setPerformanceType(type);
       setShowPerformance(true);
       
-      // ガチャ実行後、詳細データを再取得して在庫を更新
-      const updatedResponse = await gachaAPI.getGacha(gachaId);
-      setGacha(updatedResponse.gacha);
+      // SSEでリアルタイム更新されるため、手動での再取得は不要
       
     } catch (err) {
       setSnackbar({

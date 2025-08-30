@@ -47,6 +47,11 @@ class SSEClient {
         this.trigger(connectionId, 'initial-stock', JSON.parse(event.data));
       });
 
+      eventSource.addEventListener('gacha-detail-update', (event) => {
+        console.log(`SSE gacha detail update: ${connectionId}`, event.data);
+        this.trigger(connectionId, 'gacha-detail-update', JSON.parse(event.data));
+      });
+
       return eventSource;
     } catch (error) {
       console.error(`Failed to create SSE connection: ${connectionId}`, error);

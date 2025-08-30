@@ -192,6 +192,52 @@ export default async function gachaRoutes(fastify, options) {
     }
   });
 
+  // SSE: ガチャ詳細画面用（アイテム個別在庫情報）
+  fastify.get('/:id/detail/stream', async (request, reply) => {
+    try {
+      const gachaId = parseInt(request.params.id);
+      
+      if (isNaN(gachaId)) {
+        return reply.code(400).send({ error: 'Invalid gacha ID' });
+      }
+
+      const connectionId = uuidv4();
+      
+      // SSEクライアントとして登録
+      sseManager.addClient(connectionId, reply);
+      
+      // ガチャ詳細更新チャンネルに購読
+      sseManager.subscribeToChannel(connectionId, `gacha-${gachaId}-detail`);
+      
+      // 初期データを送信（ガチャとアイテムの詳細情報）
+      const gacha = await Gacha.findByIdWithItems(gachaId);
+      if (gacha) {
+        const totalStock = gacha.items.reduce((sum, item) => sum + parseInt(item.stock || 0), 0);
+        const initialStock = gacha.items.reduce((sum, item) => sum + parseInt(item.initial_stock || 0), 0);
+        
+        sseManager.sendToClient(connectionId, 'gacha-detail-update', {
+          gachaId: gacha.id,
+          gachaName: gacha.name,
+          totalStock,
+          initialStock,
+          items: gacha.items.map(item => ({
+            id: item.id,
+            name: item.name,
+            stock: parseInt(item.stock || 0),
+            initialStock: parseInt(item.initial_stock || 0)
+          }))
+        });
+      }
+
+      // 接続を維持
+      return reply;
+      
+    } catch (error) {
+      fastify.log.error('SSE gacha detail connection error:', error);
+      return reply.code(500).send({ error: 'SSE connection failed' });
+    }
+  });
+
   // ガチャ実行
   fastify.post('/:id/draw', { 
     preHandler: fastify.authenticate 
@@ -221,6 +267,26 @@ export default async function gachaRoutes(fastify, options) {
           currentStock: parseInt(stockInfo.current_stock || 0),
           initialStock: parseInt(stockInfo.initial_stock || 0),
           gachaName: stockInfo.gacha_name
+        });
+      }
+
+      // ガチャ詳細画面用のSSE更新（アイテム個別在庫情報）
+      const gachaDetail = await Gacha.findByIdWithItems(gachaId);
+      if (gachaDetail) {
+        const totalStock = gachaDetail.items.reduce((sum, item) => sum + parseInt(item.stock || 0), 0);
+        const initialStock = gachaDetail.items.reduce((sum, item) => sum + parseInt(item.initial_stock || 0), 0);
+        
+        sseManager.broadcast(`gacha-${gachaId}-detail`, 'gacha-detail-update', {
+          gachaId: gachaDetail.id,
+          gachaName: gachaDetail.name,
+          totalStock,
+          initialStock,
+          items: gachaDetail.items.map(item => ({
+            id: item.id,
+            name: item.name,
+            stock: parseInt(item.stock || 0),
+            initialStock: parseInt(item.initial_stock || 0)
+          }))
         });
       }
 
