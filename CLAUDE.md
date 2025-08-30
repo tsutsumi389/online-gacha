@@ -24,21 +24,26 @@ Online gacha web application allowing users to create, manage, and execute gacha
 
 ### Frontend Architecture (`frontend/`)
 - **Framework**: React 18 with Material-UI components
-- **Routing**: React Router (`/gacha`, `/gacha/:id`, `/my-gacha`, `/profile`)
+- **Routing**: React Router (`/gacha`, `/gacha/:id`, `/my-gacha`, `/profile`, `/profile/preferences`, `/admin/analytics`)
 - **API Layer**: Centralized in `src/utils/api.js` with error handling
 - **State Management**: React hooks (no Redux/Context API)
-- **UI Libraries**: Material-UI, Framer Motion, Swiper.js
+- **UI Libraries**: Material-UI, Framer Motion, Swiper.js, Recharts (for analytics)
 
 ### Key API Patterns
-- **Public APIs**: `/api/gachas` (public gacha access)
+- **Public APIs**: `/api/gachas` (public gacha access with personalization support)
 - **User APIs**: `/api/my/gachas` (owner-only gacha management)
 - **Auth APIs**: `/api/auth` (authentication and profile)
-- **Admin APIs**: `/api/admin` (advanced image management)
+- **Admin APIs**: `/api/admin` (advanced image management and analytics)
+- **Analytics APIs**: `/api/admin/analytics` (gacha analytics and demographic data)
+- **User Preference APIs**: `/api/user/preferences` (user settings and interest categories)
 
 ### Database Design
 - **Core Tables**: `gachas`, `gacha_items`, `gacha_results`, `users`
-- **Image Tables**: `gacha_images`, `image_variants` (Sharp.js processed variants)
+- **Image Tables**: `gacha_images`, `image_variants`, `item_images`, `item_image_variants` (Sharp.js processed variants)
 - **Auth Tables**: `user_avatar_images`, `user_avatar_variants`
+- **Analytics Tables**: `gacha_statistics`, `user_activity_logs`, `gacha_hourly_stats`, `gacha_demographic_stats`
+- **User Preference Tables**: `user_preferences`, `gacha_categories`, `user_interest_categories`, `gacha_category_mappings`, `user_gacha_ratings`
+- **A/B Testing Tables**: `ab_tests`, `ab_test_assignments`, `ab_test_events`, `ab_test_conversions`
 - **No roles/permissions** - all users have equal access to create gachas
 
 ## Development Commands
@@ -110,4 +115,8 @@ make clean              # Remove all containers and volumes
 - Real-time stock updates via Server-Sent Events (SSE)
 - Image uploads support multiple formats with automatic optimization
 - Pagination implemented on both API and frontend levels
+- **Analytics System**: Demographic analysis, time-series statistics, A/B testing framework
+- **Personalization**: User preferences, interest categories, personalized gacha recommendations
+- **Extended User Profiles**: Demographics (gender, birth_year), activity tracking, preferences
+- **A/B Testing**: Complete framework for testing UI/UX variations with conversion tracking
 - No testing framework currently configured

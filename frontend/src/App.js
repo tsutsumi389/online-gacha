@@ -19,7 +19,9 @@ import {
 import {
   Person as PersonIcon,
   Logout as LogoutIcon,
-  History as HistoryIcon
+  History as HistoryIcon,
+  Settings as SettingsIcon,
+  Analytics as AnalyticsIcon
 } from '@mui/icons-material';
 import LoginForm from './LoginForm';
 import RegisterForm from './RegisterForm';
@@ -31,6 +33,8 @@ import AdminGachaStatus from './AdminGachaStatus';
 
 import UserProfile from './UserProfile';
 import GachaHistory from './GachaHistory';
+import UserPreferences from './UserPreferences';
+import GachaAnalyticsDashboard from './GachaAnalyticsDashboard';
 import { authAPI } from './utils/api';
 
 function App() {
@@ -109,6 +113,16 @@ function App() {
   const handleGachaHistoryClick = () => {
     handleMenuClose();
     navigate('/gacha-history');
+  };
+
+  const handlePreferencesClick = () => {
+    handleMenuClose();
+    navigate('/preferences');
+  };
+
+  const handleAnalyticsClick = () => {
+    handleMenuClose();
+    navigate('/analytics');
   };
 
   const handleLogoutClick = () => {
@@ -266,6 +280,18 @@ function App() {
                   </ListItemIcon>
                   <ListItemText>ガチャ履歴</ListItemText>
                 </MenuItem>
+                <MenuItem onClick={handlePreferencesClick}>
+                  <ListItemIcon>
+                    <SettingsIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText>設定</ListItemText>
+                </MenuItem>
+                <MenuItem onClick={handleAnalyticsClick}>
+                  <ListItemIcon>
+                    <AnalyticsIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText>分析ダッシュボード</ListItemText>
+                </MenuItem>
                 <MenuItem onClick={handleLogoutClick}>
                   <ListItemIcon>
                     <LogoutIcon fontSize="small" />
@@ -356,6 +382,16 @@ function App() {
         <Route path="/gacha-history" element={
           <PrivateRoute>
             <GachaHistory />
+          </PrivateRoute>
+        } />
+        <Route path="/preferences" element={
+          <PrivateRoute>
+            <UserPreferences />
+          </PrivateRoute>
+        } />
+        <Route path="/analytics" element={
+          <PrivateRoute>
+            <GachaAnalyticsDashboard />
           </PrivateRoute>
         } />
 

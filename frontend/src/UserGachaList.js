@@ -21,7 +21,11 @@ import {
   Rating,
   Tooltip,
   CircularProgress,
-  Alert
+  Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -41,7 +45,7 @@ import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import 'swiper/css/effect-coverflow';
 import { motion, AnimatePresence } from 'framer-motion';
-import { gachaAPI, handleApiError } from './utils/api';
+import { gachaAPI, authAPI, apiCall, handleApiError } from './utils/api';
 import sseClient from './utils/sseClient';
 
 // 実際のシードデータに基づくモックデータ
@@ -142,8 +146,11 @@ export default function UserGachaList() {
   const [favorites, setFavorites] = useState(new Set());
   const [sortBy, setSortBy] = useState('popular');
   const [gachas, setGachas] = useState([]);
+  const [personalizedGachas, setPersonalizedGachas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [usePersonalization, setUsePersonalization] = useState(false);
   const [filter, setFilter] = useState('all');
   const [stockData, setStockData] = useState(new Map()); // ガチャID -> 在庫情報のマップ
   const [updatedStocks, setUpdatedStocks] = useState(new Set()); // 最近更新された在庫のガチャIDセット
@@ -153,7 +160,27 @@ export default function UserGachaList() {
     { key: 'all', label: 'すべて' },
     { key: 'inStock', label: '在庫あり' },
     { key: 'endingSoon', label: '終了が近い' },
+    ...(isAuthenticated ? [{ key: 'personalized', label: 'おすすめ' }] : []),
   ];
+
+  const sortOptions = [
+    { key: 'popular', label: '人気順' },
+    { key: 'rating', label: '評価順' },
+    { key: 'price-low', label: '価格の安い順' },
+    { key: 'price-high', label: '価格の高い順' },
+    { key: 'newest', label: '新着順' },
+    ...(isAuthenticated ? [{ key: 'personalized', label: 'あなたにおすすめ' }] : []),
+  ];
+
+  // 認証状態を確認
+  const checkAuthentication = async () => {
+    try {
+      await authAPI.getCurrentUser();
+      setIsAuthenticated(true);
+    } catch (error) {
+      setIsAuthenticated(false);
+    }
+  };
 
   // ガチャ一覧を取得
   const fetchGachas = async (params) => {
@@ -162,6 +189,22 @@ export default function UserGachaList() {
       setError('');
       const response = await gachaAPI.getGachas(params);
       setGachas(response.gachas || []);
+    } catch (err) {
+      setError(handleApiError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // パーソナライズされたガチャ一覧を取得
+  const fetchPersonalizedGachas = async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      setLoading(true);
+      setError('');
+      const response = await apiCall('/api/user/personalized-gachas', 'GET');
+      setPersonalizedGachas(response.data || []);
     } catch (err) {
       setError(handleApiError(err));
     } finally {
@@ -240,16 +283,34 @@ export default function UserGachaList() {
     }
   };
 
+  // 初回マウント時に認証状態をチェック
+  useEffect(() => {
+    checkAuthentication();
+  }, []);
+
+  // 認証状態が変化したときにお気に入り一覧を読み込み
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadUserFavorites();
+    } else {
+      setFavorites(new Set());
+    }
+  }, [isAuthenticated]);
+
   useEffect(() => {
     const params = {
       filter: filter,
       search: search,
     };
     const handler = setTimeout(() => {
-      fetchGachas(params);
+      if (filter === 'personalized' && isAuthenticated) {
+        fetchPersonalizedGachas();
+      } else {
+        fetchGachas(params);
+      }
     }, 500); // debounce search
     return () => clearTimeout(handler);
-  }, [filter, search]);
+  }, [filter, search, isAuthenticated]);
 
   // SSE接続の管理
   useEffect(() => {
@@ -262,7 +323,19 @@ export default function UserGachaList() {
     };
   }, []);
 
-  const sorted = [...gachas].sort((a, b) => {
+  // パーソナライズされた一覧の場合は独自のソートロジック
+  const getDisplayGachas = () => {
+    if (filter === 'personalized' && personalizedGachas.length > 0) {
+      return personalizedGachas; // 既にパーソナライズスコアでソートされている
+    }
+    return gachas;
+  };
+
+  const sorted = [...getDisplayGachas()].sort((a, b) => {
+    if (sortBy === 'personalized' && filter === 'personalized') {
+      return (b.personalization_score || 0) - (a.personalization_score || 0);
+    }
+    
     switch (sortBy) {
       case 'popular':
         return (b.totalPlays || 0) - (a.totalPlays || 0);
@@ -279,14 +352,47 @@ export default function UserGachaList() {
     }
   });
 
-  const toggleFavorite = (gachaId) => {
-    const newFavorites = new Set(favorites);
-    if (newFavorites.has(gachaId)) {
-      newFavorites.delete(gachaId);
-    } else {
-      newFavorites.add(gachaId);
+  const toggleFavorite = async (gachaId) => {
+    if (!isAuthenticated) {
+      setError('お気に入り機能を使用するにはログインが必要です');
+      return;
     }
-    setFavorites(newFavorites);
+
+    try {
+      const isCurrentlyFavorite = favorites.has(gachaId);
+      
+      if (isCurrentlyFavorite) {
+        // お気に入りから削除
+        await apiCall(`/api/user/favorites/${gachaId}`, 'DELETE');
+      } else {
+        // お気に入りに追加
+        await apiCall('/api/user/favorites', 'POST', { gacha_id: gachaId });
+      }
+
+      const newFavorites = new Set(favorites);
+      if (isCurrentlyFavorite) {
+        newFavorites.delete(gachaId);
+      } else {
+        newFavorites.add(gachaId);
+      }
+      setFavorites(newFavorites);
+    } catch (error) {
+      setError('お気に入りの更新に失敗しました');
+      console.error('Failed to toggle favorite:', error);
+    }
+  };
+
+  // ユーザーのお気に入り一覧を取得
+  const loadUserFavorites = async () => {
+    if (!isAuthenticated) return;
+
+    try {
+      const response = await apiCall('/api/user/favorites', 'GET');
+      const favoriteIds = new Set(response.data?.map(fav => fav.gacha_id) || []);
+      setFavorites(favoriteIds);
+    } catch (error) {
+      console.error('Failed to load user favorites:', error);
+    }
   };
 
   const getRarityColor = (rarity) => {
@@ -363,7 +469,7 @@ export default function UserGachaList() {
         <Card sx={{ mb: 4, borderRadius: 3, boxShadow: 3 }}>
           <CardContent>
             <Grid container spacing={3} alignItems="center">
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={3}>
                 <TextField
                   fullWidth
                   placeholder="ガチャ名または作成者で検索..."
@@ -379,7 +485,23 @@ export default function UserGachaList() {
                   sx={{ borderRadius: 2 }}
                 />
               </Grid>
-              <Grid item xs={12} md={8}>
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth>
+                  <InputLabel>並び順</InputLabel>
+                  <Select
+                    value={sortBy}
+                    label="並び順"
+                    onChange={(e) => setSortBy(e.target.value)}
+                  >
+                    {sortOptions.map((option) => (
+                      <MenuItem key={option.key} value={option.key}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={7}>
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                   {filters.map((item) => (
                     <Chip
@@ -568,11 +690,21 @@ export default function UserGachaList() {
                           <Typography variant="h6" component="h2" sx={{ fontWeight: 'bold', flex: 1 }}>
                             {gacha.name}
                           </Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
-                            <Rating value={gacha.rating || 0} precision={0.1} size="small" readOnly />
-                            <Typography variant="caption" sx={{ ml: 0.5 }}>
-                              ({gacha.totalPlays || 0})
-                            </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', ml: 1, flexDirection: 'column' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <Rating value={gacha.rating || 0} precision={0.1} size="small" readOnly />
+                              <Typography variant="caption" sx={{ ml: 0.5 }}>
+                                ({gacha.totalPlays || 0})
+                              </Typography>
+                            </Box>
+                            {gacha.personalization_score && (
+                              <Chip
+                                label={`あなたへ: ${Math.round(gacha.personalization_score * 100)}%`}
+                                size="small"
+                                color="secondary"
+                                sx={{ mt: 0.5, fontSize: '0.7rem' }}
+                              />
+                            )}
                           </Box>
                         </Box>
 

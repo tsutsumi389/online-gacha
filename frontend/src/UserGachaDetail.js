@@ -21,6 +21,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { gachaAPI } from './utils/api';
 import { handleApiError } from './utils/api';
 import GachaPerformance from './GachaPerformance';
+import GachaRatingComponent from './GachaRatingComponent';
 import sseClient from './utils/sseClient';
 
 export default function UserGachaDetail({ gachaId, onBack }) {
@@ -628,6 +629,37 @@ export default function UserGachaDetail({ gachaId, onBack }) {
               }
             </Typography>
           </Paper>
+
+          {/* 評価・レビューセクション */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.5 }}
+          >
+            <Paper
+              elevation={0}
+              sx={{
+                p: 4,
+                borderRadius: 3,
+                mt: 4,
+                background: `linear-gradient(135deg, ${alpha(theme.palette.background.paper, 0.9)} 0%, ${alpha(theme.palette.background.paper, 0.95)} 100%)`,
+                backdropFilter: 'blur(20px)',
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
+              }}
+            >
+              <GachaRatingComponent
+                gachaId={gacha.id}
+                showReviews={true}
+                onRatingUpdate={(rating) => {
+                  setSnackbar({
+                    open: true,
+                    message: '評価を更新しました',
+                    severity: 'success'
+                  });
+                }}
+              />
+            </Paper>
+          </motion.div>
         </motion.div>
       </Container>
 

@@ -370,4 +370,26 @@ export const handleApiError = (error) => {
   }
 };
 
+// 後方互換性のためのエイリアス
+export const apiCall = apiRequest;
+export const api = {
+  get: (endpoint, options = {}) => apiRequest(endpoint, { ...options, method: 'GET' }),
+  post: (endpoint, data, options = {}) => apiRequest(endpoint, { 
+    ...options, 
+    method: 'POST',
+    body: data instanceof FormData ? data : JSON.stringify(data)
+  }),
+  put: (endpoint, data, options = {}) => apiRequest(endpoint, { 
+    ...options, 
+    method: 'PUT',
+    body: data instanceof FormData ? data : JSON.stringify(data)
+  }),
+  patch: (endpoint, data, options = {}) => apiRequest(endpoint, { 
+    ...options, 
+    method: 'PATCH',
+    body: data instanceof FormData ? data : JSON.stringify(data)
+  }),
+  delete: (endpoint, options = {}) => apiRequest(endpoint, { ...options, method: 'DELETE' }),
+};
+
 export default apiRequest;

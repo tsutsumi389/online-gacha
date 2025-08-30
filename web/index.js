@@ -7,6 +7,11 @@ import authRoutes from './src/routes/auth.js';
 import gachaRoutes from './src/routes/gacha.js';
 import userGachaRoutes from './src/routes/admin.js';
 import imageRoutes from './src/routes/images.js';
+import analyticsRoutes from './src/routes/analytics.js';
+import preferencesRoutes from './src/routes/preferences.js';
+import realtimeRoutes from './src/routes/realtime.js';
+import abTestingRoutes from './src/routes/abTesting.js';
+import statsUpdater from './src/utils/statsUpdater.js';
 import { errorHandler, setupGracefulShutdown } from './src/utils/helpers.js';
 
 const fastify = Fastify({ logger: true });
@@ -69,8 +74,27 @@ fastify.register(imageRoutes, { prefix: '/api/admin/images' });
 // 画像配信のルート（一般用）
 fastify.register(imageRoutes, { prefix: '/api/images' });
 
+// 分析APIルート（管理者用）
+fastify.register(analyticsRoutes, { prefix: '/api/admin/analytics' });
+
+// ユーザー設定・趣味嗜好APIルート
+fastify.register(preferencesRoutes, { prefix: '/api/user' });
+
+// リアルタイム更新APIルート
+fastify.register(realtimeRoutes, { prefix: '/api/realtime' });
+
+// A/BテストAPIルート
+fastify.register(abTestingRoutes, { prefix: '/api' });
+
 // エラーハンドラーの設定
 fastify.setErrorHandler(errorHandler(fastify));
+
+// 統計更新システムを開始
+statsUpdater.start({
+  hourlyInterval: 60 * 60 * 1000, // 1時間毎
+  enableRealtimeUpdates: true,
+  enableCleanup: true
+});
 
 // Graceful shutdown の設定
 setupGracefulShutdown(fastify, database);
