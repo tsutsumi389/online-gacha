@@ -9,6 +9,8 @@ import userGachaRoutes from './src/routes/admin.js';
 import imageRoutes from './src/routes/images.js';
 import analyticsRoutes from './src/routes/analytics.js';
 import preferencesRoutes from './src/routes/preferences.js';
+import realtimeRoutes from './src/routes/realtime.js';
+import abTestingRoutes from './src/routes/abTesting.js';
 import statsUpdater from './src/utils/statsUpdater.js';
 import { errorHandler, setupGracefulShutdown } from './src/utils/helpers.js';
 
@@ -77,6 +79,12 @@ fastify.register(analyticsRoutes, { prefix: '/api/admin/analytics' });
 
 // ユーザー設定・趣味嗜好APIルート
 fastify.register(preferencesRoutes, { prefix: '/api/user' });
+
+// リアルタイム更新APIルート
+fastify.register(realtimeRoutes, { prefix: '/api/realtime' });
+
+// A/BテストAPIルート
+fastify.register(abTestingRoutes, { prefix: '/api' });
 
 // エラーハンドラーの設定
 fastify.setErrorHandler(errorHandler(fastify));

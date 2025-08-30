@@ -1,6 +1,7 @@
 {
   "name": "online-gacha-backend",
   "version": "1.0.0",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -15,6 +16,7 @@
     "bcrypt": "^5.1.1",
     "fastify": "^4.27.2",
     "fastify-sse-v2": "^4.2.1",
+    "ioredis": "^5.3.2",
     "joi": "^17.11.0",
     "minio": "^8.0.1",
     "pg": "^8.12.0",
