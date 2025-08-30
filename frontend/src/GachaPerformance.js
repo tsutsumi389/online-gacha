@@ -387,24 +387,24 @@ export default function GachaPerformance({
     switch (perfType) {
       case 'sure':
         return {
-          title: '確定演出',
-          subtitle: '高レアリティ確定！',
+          title: 'ガチャ抽選',
+          subtitle: '何が出るかお楽しみ！',
           color: theme.palette.error.main,
           bgGradient: `linear-gradient(135deg, ${alpha(theme.palette.error.main, 0.2)} 0%, ${alpha(theme.palette.error.dark, 0.3)} 100%)`,
           icon: <AutoAwesomeIcon />
         };
       case 'reverse':
         return {
-          title: '逆転演出',
-          subtitle: 'まさかの大逆転！',
+          title: 'ガチャ抽選',
+          subtitle: '何が出るかお楽しみ！',
           color: theme.palette.warning.main,
           bgGradient: `linear-gradient(135deg, ${alpha(theme.palette.warning.main, 0.2)} 0%, ${alpha(theme.palette.warning.dark, 0.3)} 100%)`,
           icon: <CelebrationIcon />
         };
       default:
         return {
-          title: '通常演出',
-          subtitle: 'どんなアイテムが出るかな？',
+          title: 'ガチャ抽選',
+          subtitle: '何が出るかお楽しみ！',
           color: theme.palette.primary.main,
           bgGradient: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.2)} 0%, ${alpha(theme.palette.primary.dark, 0.3)} 100%)`,
           icon: <CasinoIcon />
